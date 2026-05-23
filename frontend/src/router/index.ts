@@ -9,6 +9,7 @@ import CustomerOrders from '../components/customer/CustomerOrders.vue';
 import CustomerBilling from '../components/customer/CustomerBilling.vue';
 import CustomerSupport from '../components/customer/CustomerSupport.vue';
 import CustomerProducts from '../components/customer/CustomerProducts.vue';
+import CustomerMedia from '../components/customer/CustomerMedia.vue';
 
 const routes = [
   // Tambahkan baris ini agar otomatis pindah ke /customer saat buka localhost:5173/
@@ -23,6 +24,7 @@ const routes = [
       { path: 'billing', name: 'customer.billing', component: CustomerBilling },
       { path: 'support', name: 'customer.support', component: CustomerSupport },
       { path: 'products', name: 'customer.products', component: CustomerProducts },
+      { path: 'media', name: 'customer.media', component: CustomerMedia },
     ]
   },
   // Nanti rute admin bisa dibuat terpisah di path '/admin'
