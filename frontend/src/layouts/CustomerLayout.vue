@@ -35,8 +35,12 @@
         </nav>
 
         <div class="absolute right-4 md:right-8 bottom-0 h-[55px] md:h-[65px] flex items-center gap-2 md:gap-3 z-10">
-          <button class="px-4 py-1.5 md:px-6 md:py-1.5 text-xs md:text-sm font-bold text-[#B48440] bg-white border-2 border-[#B48440] rounded-xl hover:bg-orange-50 transition">Register</button>
-          <button class="px-4 py-1.5 md:px-6 md:py-2 text-xs md:text-sm font-bold text-white bg-[#B48440] rounded-xl hover:bg-[#966d33] shadow-md transition">Login</button>
+          <router-link to="/customer/register" class="px-4 py-1.5 md:px-6 md:py-1.5 text-xs md:text-sm font-bold text-[#B48440] bg-white border-2 border-[#B48440] rounded-xl hover:bg-orange-50 transition">
+            Register
+          </router-link>
+          <router-link to="/customer/login" class="px-4 py-1.5 md:px-6 md:py-2 text-xs md:text-sm font-bold text-white bg-[#B48440] rounded-xl hover:bg-[#966d33] shadow-md transition">
+            Login
+          </router-link>
         </div>
       </header>
     </div>

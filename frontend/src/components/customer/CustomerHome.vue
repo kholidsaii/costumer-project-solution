@@ -17,7 +17,7 @@ const features = [
   <div class="px-4 md:px-8 mt-4 md:mt-6 pb-12">
     <main class="relative w-full max-w-7xl mx-auto rounded-2xl shadow-sm border border-slate-200 overflow-hidden pt-12 md:pt-16 pb-12 px-4 md:px-8 text-center z-10">
       <div class="absolute inset-0 z-0 pointer-events-none bg-cover bg-center" style="background-image: url('/bg.png');"></div>
-      <div class="absolute inset-0 bg-white/20 z-0 pointer-events-none"></div>
+      <div class="absolute inset-0 bg-white/15 z-0 pointer-events-none"></div>
 
       <div class="relative z-10">
         <h2 class="kotta-title mb-6 drop-shadow-sm bg-gradient-to-r from-[#4BB4E6] to-[#F2A961] bg-clip-text text-transparent inline-block">
