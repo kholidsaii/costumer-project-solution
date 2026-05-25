@@ -7,6 +7,7 @@ const router = useRouter();
 const email = ref('');
 const password = ref('');
 const errorMessage = ref('');
+const showPassword = ref(false);
 
 const handleLogin = async () => {
   try {
@@ -21,7 +22,7 @@ const handleLogin = async () => {
     if (response.data.user.role === 'admin') {
       router.push('/admin/dashboard');
     } else {
-      router.push('/dashboard/customer'); // <--- Arahkan ke rute panel sidebar baru ini
+      router.push('/dashboard/customer');
     }
   } catch (error: any) {
     errorMessage.value = 'Email atau password salah!';
@@ -30,30 +31,55 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="px-4 md:px-8 mt-8 md:mt-12 pb-12">
-    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-10">
-      <h2 class="text-3xl font-black text-slate-800 text-center mb-2">Login</h2>
-      <p class="text-center text-slate-500 mb-8 text-sm">Masuk ke dashboard pelanggan Anda</p>
+  <div class="px-4 md:px-8 pb-12">
+    <div class="w-full max-w-7xl mx-auto mt-6 rounded-3xl min-h-[650px] flex items-center justify-center p-6 relative overflow-hidden shadow-inner bg-cover bg-center" style="background-image: url('/bg_log.png');">
       
-      <p v-if="errorMessage" class="text-red-500 text-sm mb-4 text-center bg-red-50 p-2 rounded">{{ errorMessage }}</p>
+      <div class="w-full max-w-xs relative z-10 my-8">
+        
+        <div class="flex justify-center mb-8">
+          <img src="/login.png" alt="Login Logo" class="w-28 h-28 object-contain">
+        </div>
 
-      <form @submit.prevent="handleLogin" class="space-y-5">
-        <div>
-          <label class="block text-sm font-bold text-slate-600 mb-1">Email</label>
-          <input v-model="email" type="email" placeholder="contoh@email.com" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition" required />
-        </div>
-        <div>
-          <label class="block text-sm font-bold text-slate-600 mb-1">Password</label>
-          <input v-model="password" type="password" placeholder="••••••••" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition" required />
-        </div>
-        <button type="submit" class="w-full bg-[#B48440] text-white font-bold py-3 rounded-xl hover:bg-[#966d33] shadow-md transition mt-4">
-          Login Sekarang
-        </button>
-      </form>
-      
-      <p class="text-center text-sm text-slate-500 mt-6">
-        Belum punya akun? <router-link to="/customer/register" class="text-blue-500 font-bold hover:underline">Daftar di sini</router-link>
-      </p>
+        <p v-if="errorMessage" class="text-red-500 text-xs mb-4 text-center bg-white/90 p-2 rounded-lg font-bold shadow-md">{{ errorMessage }}</p>
+
+        <form @submit.prevent="handleLogin" class="space-y-4">
+          <div>
+            <input v-model="email" type="email" placeholder="Username or email" class="w-full px-4 py-3 bg-white border-none rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFD700] shadow-md" required />
+          </div>
+
+          <div class="relative">
+            <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••" class="w-full px-4 py-3 bg-white border-none rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFD700] shadow-md pr-10" required />
+            <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between px-1">
+            <label class="flex items-center text-white text-[11px] font-bold cursor-pointer">
+              <input type="checkbox" class="mr-2 w-3.5 h-3.5 rounded-sm border-white bg-transparent text-[#66C2EC] focus:ring-0 focus:ring-offset-0" />
+              Remember me
+            </label>
+            <a href="#" class="text-[#FFD700] text-[11px] font-black hover:underline tracking-wide">
+              Forgot Password?
+            </a>
+          </div>
+
+          <div class="pt-4">
+            <button type="submit" class="w-[75%] mx-auto block bg-[#66C2EC] hover:bg-[#4BB4E6] text-white font-black py-2.5 rounded-xl shadow-[0_6px_12px_rgba(0,0,0,0.15)] transition-all transform hover:-translate-y-0.5 text-sm tracking-widest">
+              Sign in
+            </button>
+          </div>
+        </form>
+        
+        <p class="text-center text-[11px] text-white mt-6 font-bold tracking-wide">
+          New to here! 
+          <router-link to="/customer/register" class="text-[#FFD700] font-black hover:underline">
+            Sign up
+          </router-link>
+        </p>
+
+      </div>
     </div>
   </div>
 </template>

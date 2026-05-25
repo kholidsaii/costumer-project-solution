@@ -25,6 +25,10 @@ class User extends Authenticatable
         'password',
         'role',
         'phone',
+        'date_of_birth', 
+        'gender',        
+        'country',       
+        'address'
     ];
 
     public function orders() {
