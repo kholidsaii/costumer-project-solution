@@ -32,12 +32,12 @@ const handleLogin = async () => {
 
 <template>
   <div class="px-4 md:px-8 pb-12">
-    <div class="w-full max-w-7xl mx-auto mt-6 rounded-3xl min-h-[650px] flex items-center justify-center p-6 relative overflow-hidden shadow-inner bg-cover bg-center" style="background-image: url('/bg_log.png');">
+    <div class="w-full max-w-5xl mx-auto mt-6 rounded-3xl min-h-[650px] flex items-center justify-center p-6 relative overflow-hidden shadow-inner bg-cover bg-center" style="background-image: url('/bg_log.png');">
       
       <div class="w-full max-w-xs relative z-10 my-8">
         
         <div class="flex justify-center mb-8">
-          <img src="/login.png" alt="Login Logo" class="w-28 h-28 object-contain">
+          <img src="/log.png" alt="Login Logo" class="w-28 h-28 object-contain">
         </div>
 
         <p v-if="errorMessage" class="text-red-500 text-xs mb-4 text-center bg-white/90 p-2 rounded-lg font-bold shadow-md">{{ errorMessage }}</p>

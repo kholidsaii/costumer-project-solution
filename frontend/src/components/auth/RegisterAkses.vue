@@ -55,10 +55,14 @@ const handleRegister = async () => {
 
 <template>
   <div class="px-4 md:px-8 pb-12">
-    <div class="w-full max-w-7xl mx-auto mt-6 rounded-3xl min-h-[700px] flex items-center justify-center p-6 py-10 relative overflow-hidden shadow-inner bg-cover bg-center" style="background-image: url('/bg_log.png');">
+    <div class="w-full max-w-5xl mx-auto mt-6 rounded-3xl min-h-[700px] flex items-center justify-center p-6 py-10 relative overflow-hidden shadow-inner bg-cover bg-center" style="background-image: url('/bg_log.png');">
 
       <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl p-8 relative z-10 my-6">
         
+        <div class="flex justify-center mb-8">
+          <img src="/reg.png" alt="Register Logo" class="w-28 h-28 object-contain">
+        </div>
+
         <p v-if="errorMessage" class="text-red-500 text-xs mb-4 text-center bg-red-50 p-2 rounded border border-red-100">{{ errorMessage }}</p>
         <p v-if="successMessage" class="text-green-600 text-xs mb-4 text-center bg-green-50 p-2 rounded border border-green-100">{{ successMessage }}</p>
 

@@ -267,7 +267,7 @@ onMounted(() => {
 
 <template>
   <div class="bg-[#F3F2EF] min-h-screen pt-6 pb-12 font-sans relative"> 
-    <div class="max-w-7xl mx-auto px-4 md:px-8">
+    <div class="max-w-5xl mx-auto px-4 md:px-8">
       
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         

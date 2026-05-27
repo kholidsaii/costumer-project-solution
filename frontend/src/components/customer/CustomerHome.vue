@@ -17,7 +17,7 @@ const features = [
 
 <template>
   <div class="px-4 md:px-8 mt-4 md:mt-6 pb-12">
-    <main class="relative w-full max-w-7xl mx-auto rounded-2xl shadow-sm border border-slate-200 overflow-hidden pt-12 md:pt-16 pb-12 px-4 md:px-8 text-center z-10">
+    <main class="relative w-full max-w-5xl mx-auto rounded-2xl shadow-sm border border-slate-200 overflow-hidden pt-12 md:pt-16 pb-12 px-4 md:px-8 text-center z-10">
       
       <div class="absolute inset-0 z-0 pointer-events-none bg-cover bg-center" style="background-image: url('/bg.png');"></div>
       <div class="absolute inset-0 bg-white/15 z-0 pointer-events-none"></div>

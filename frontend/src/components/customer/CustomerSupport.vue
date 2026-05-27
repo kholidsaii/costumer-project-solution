@@ -1,6 +1,6 @@
 <template>
   <div class="px-4 md:px-8 mt-4 md:mt-6 pb-12">
-    <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-12">
+    <div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-12">
       <h1 class="text-3xl font-black text-slate-800 mb-2">Support & Bantuan</h1>
       <p class="text-slate-500 mb-8">Hubungi kami jika Anda memiliki pertanyaan atau kendala.</p>
 
