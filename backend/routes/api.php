@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\SupportController;
 
 /*
 |--------------------------------------------------------------------------
-| 1. PUBLIC ROUTES (Bisa diakses siapa saja, untuk Landing Page)
+| 1. PUBLIC ROUTES (Bisa diakses siapa saja tanpa login)
 |--------------------------------------------------------------------------
 */
 // Autentikasi
@@ -18,9 +18,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Landing Page Data
 Route::get('/products', [ProductController::class, 'index']);
-Route::get('/articles', [ArticleController::class, 'index']);
 Route::get('/tutorials', [SupportController::class, 'getTutorials']);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -35,6 +33,28 @@ Route::middleware('auth:sanctum')->group(function () {
     // Ambil data profil user yang sedang login
     Route::get('/user', function (Request $request) {
         return $request->user();
+    });
+
+    /*
+    |----------------------------------------------------------------------
+    | INTERAKSI MEDIA / FEED (Semua user login bisa posting & interaksi)
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('articles')->group(function () {
+        // Feed Data (Dipindah ke dalam auth agar Auth::id() berfungsi untuk ngecek Like)
+        Route::get('/', [ArticleController::class, 'index']); 
+        Route::get('/{id}', [ArticleController::class, 'show']); 
+        Route::get('/{id}/comments', [ArticleController::class, 'getComments']); 
+
+        // Aksi Postingan
+        Route::post('/', [ArticleController::class, 'store']); // Buat postingan baru
+        // Route::put('/{id}', [ArticleController::class, 'update']); // Edit (Bisa diaktifkan jika controllernya sudah Anda buat)
+        Route::delete('/{id}', [ArticleController::class, 'destroy']); // Hapus postingan sendiri
+        
+        // Fitur Sosial ala LinkedIn
+        Route::post('/{id}/like', [ArticleController::class, 'toggleLike']); // Suka / Batal Suka
+        Route::post('/{id}/comments', [ArticleController::class, 'storeComment']); // Tulis komentar
+        // Route::delete('/comments/{commentId}', [ArticleController::class, 'destroyComment']); // Hapus komentar sendiri
     });
 
     /*
@@ -55,9 +75,9 @@ Route::middleware('auth:sanctum')->group(function () {
     |----------------------------------------------------------------------
     */
     Route::middleware('role:admin')->prefix('admin')->group(function () {
-        // Nanti ini untuk proses nambah produk, nulis artikel, cek orderan masuk
+        // Area khusus admin untuk manajemen master data
         // Route::post('/products', [ProductController::class, 'store']);
-        // Route::post('/articles', [ArticleController::class, 'store']);
+        // Route::put('/products/{id}', [ProductController::class, 'update']);
         // Route::get('/orders', [AdminOrderController::class, 'index']);
     });
 
