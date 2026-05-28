@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    // config/services.php
+
+    // Di dalam config/services.php
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('APP_ENV') === 'local' 
+                    ? 'http://localhost:8000/api/auth/google/callback' 
+                    : env('GOOGLE_REDIRECT'),
+    ],
+
 ];

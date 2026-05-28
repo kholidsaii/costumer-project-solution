@@ -87,7 +87,7 @@ const isAuthPage = computed(() => {
     </div>
 
     <a 
-      href="https://wa.me/6281234567890" 
+      href="https://wa.me/6285117001162" 
       target="_blank" 
       class="fixed bottom-6 right-6 md:bottom-10 md:right-8 z-50 flex items-center justify-center w-14 h-14 bg-[#25D366] text-white rounded-full shadow-[0_6px_16px_rgba(37,211,102,0.4)] hover:bg-[#1DA851] hover:scale-110 transition-transform duration-300 pointer-events-auto group"
       title="Hubungi Kami di WhatsApp"

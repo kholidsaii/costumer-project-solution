@@ -15,6 +15,8 @@ import CustomerAbout from '../components/customer/CustomerAbout.vue';
 // Auth Views
 import LoginAkses from '../components/auth/LoginAkses.vue'; 
 import RegisterAkses from '../components/auth/RegisterAkses.vue'; 
+import ForgotPassword from '../components/auth/ForgotPassword.vue';
+import ResetPassword from '../components/auth/ResetPassword.vue';
 
 // --- Tambahkan Import Komponen Dashboard Baru ---
 import DashboardCustomer from '../components/dashboardcustomer/Dashboard.vue';
@@ -40,6 +42,8 @@ const routes = [
       { path: 'about', name: 'customer.about', component: CustomerAbout }, 
       { path: 'login', name: 'login', component: LoginAkses },
       { path: 'register', name: 'register', component: RegisterAkses },
+      { path: 'forgot-password', name: 'ForgotPassword', component: ForgotPassword },
+      { path: 'reset-password', name: 'ResetPassword', component: ResetPassword },
     ]
   },
   
