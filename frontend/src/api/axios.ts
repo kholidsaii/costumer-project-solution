@@ -21,5 +21,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 // ---------------------------
-
+// Tambahkan ini di bawah request interceptor
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token kedaluwarsa/tidak valid
+      localStorage.clear();
+      window.location.href = '/customer/login';
+    }
+    return Promise.reject(error);
+  }
+);
 export default api;

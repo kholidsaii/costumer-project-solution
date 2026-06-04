@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
 
 class UserSeeder extends Seeder
 {
@@ -13,30 +13,37 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Membuat Akun Administrator
-        User::create([
-            'name' => 'Super Admin Kerjapro',
-            'email' => 'adminkerjapro@gmail.com',
-            'password' => Hash::make('admin123'), // Password untuk login
-            'role' => 'admin',
-            'phone' => '+628111111111',
-            'date_of_birth' => '1990-01-01',
-            'gender' => 'Male',
-            'country' => 'Indonesia',
-            'address' => 'Gedung Kerjapro Pusat, Jakarta',
-        ]);
+        // 1. Akun Administrator
+        User::updateOrCreate(
+            ['email' => 'adminkerjapro@gmail.com'], // Cek agar tidak duplikat
+            [
+                'name' => 'Admin Kerjapro',
+                'password' => Hash::make('password123'), // Default password
+                'role' => 'admin',
+                'phone' => '+6285117001162',
+            ]
+        );
 
-        // 2. Membuat Akun Customer (Pelanggan)
-        User::create([
-            'name' => 'Khoirusyamil',
-            'email' => 'khoirusyamilyahya23@gmail.com',
-            'password' => Hash::make('syamil123'), // Password untuk login
-            'role' => 'customer',
-            'phone' => '+628222222222',
-            'date_of_birth' => '1995-05-15',
-            'gender' => 'Male',
-            'country' => 'Indonesia',
-            'address' => 'Jl. Masjid Bendungan 2',
-        ]);
+        // 2. Akun Customer 1
+        User::updateOrCreate(
+            ['email' => 'khoirusyamilyahya23@gmail.com'],
+            [
+                'name' => 'Khoirusyamil Yahya',
+                'password' => Hash::make('password123'),
+                'role' => 'customer',
+                'phone' => '+6281234567890',
+            ]
+        );
+
+        // 3. Akun Customer 2
+        User::updateOrCreate(
+            ['email' => 'kholidsaifullah@gmail.com'],
+            [
+                'name' => 'Kholid Saifullah',
+                'password' => Hash::make('password123'),
+                'role' => 'customer',
+                'phone' => '+6289876543210',
+            ]
+        );
     }
 }

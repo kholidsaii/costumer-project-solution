@@ -1,134 +1,111 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-// Layouts
+// Import Layouts
 import CustomerLayout from '../layouts/CustomerLayout.vue';
 import DashboardCustomerLayout from '../layouts/DashboardCustomerLayout.vue';
-import AdminLayout from '../layouts/AdminLayout.vue'; // <-- Tambahkan Import ini
+import AdminLayout from '../layouts/AdminLayout.vue';
 
-// Public Customer Views
+// Import Components (Frontend)
 import CustomerHome from '../components/customer/CustomerHome.vue';
-import CustomerSupport from '../components/customer/CustomerSupport.vue';
 import CustomerProducts from '../components/customer/CustomerProducts.vue';
+import ProductDetail from '../components/customer/ProductDetail.vue'; 
+
+// Import Halaman Publik Tambahan
+import CustomerAbout from '../components/customer/CustomerAbout.vue';
 import CustomerMedia from '../components/customer/CustomerMedia.vue';
-import CustomerAbout from '../components/customer/CustomerAbout.vue'; 
+import CustomerSupport from '../components/customer/CustomerSupport.vue';
 
-// Auth Views
-import LoginAkses from '../components/auth/LoginAkses.vue'; 
-import RegisterAkses from '../components/auth/RegisterAkses.vue'; 
-import ForgotPassword from '../components/auth/ForgotPassword.vue';
-import ResetPassword from '../components/auth/ResetPassword.vue';
+// Import Components (Customer Dashboard)
+import CustomerDashboard from '../components/dashboardcustomer/Dashboard.vue';
+import CustomerOrders from '../components/dashboardcustomer/Orders.vue';
+// import CustomerBilling from '../components/dashboardcustomer/Billing.vue';
 
-// --- Tambahkan Import Komponen Dashboard Baru ---
-import DashboardCustomer from '../components/dashboardcustomer/Dashboard.vue';
-import CustomerOrders from '../components/customer/CustomerOrders.vue';
-import CustomerBilling from '../components/customer/CustomerBilling.vue';
+// Import Components (Admin Dashboard)
+import AdminDashboard from '../components/admin/Dashboard.vue';
+import AdminProducts from '../components/admin/product/Products.vue'; // CRUD
+
+// Import Auth
+import Login from '../components/auth/LoginAkses.vue';
+import Register from '../components/auth/RegisterAkses.vue';
 
 const routes = [
-  { path: '/', redirect: '/customer' },
-
-  /*
-  |--------------------------------------------------------------------------
-  | 1. PUBLIC ROUTES GROUP (Menggunakan Header Banner Besar)
-  |--------------------------------------------------------------------------
-  */
+  /* * 1. FRONTEND / PUBLIC AREA 
+   * Menggunakan CustomerLayout
+   */
   {
     path: '/customer',
     component: CustomerLayout,
     children: [
-      { path: '', name: 'customer.home', component: CustomerHome },
-      { path: 'support', name: 'customer.support', component: CustomerSupport },
-      { path: 'products', name: 'customer.products', component: CustomerProducts },
-      { path: 'media', name: 'customer.media', component: CustomerMedia },
-      { path: 'about', name: 'customer.about', component: CustomerAbout }, 
-      { path: 'login', name: 'login', component: LoginAkses },
-      { path: 'register', name: 'register', component: RegisterAkses },
-      { path: 'forgot-password', name: 'ForgotPassword', component: ForgotPassword },
-      { path: 'reset-password', name: 'ResetPassword', component: ResetPassword },
-    ]
-  },
-  
-  /*
-  |--------------------------------------------------------------------------
-  | 2. PRIVAT CUSTOMER DASHBOARD GROUP (Menggunakan Sidebar Panel Kiri)
-  |--------------------------------------------------------------------------
-  */
-  {
-    path: '/dashboard/customer',
-    component: DashboardCustomerLayout,
-    meta: { requiresAuth: true, role: 'customer' }, // Diproteksi wajib login & harus customer
-    children: [
-      { path: '', name: 'customer.dashboard', component: DashboardCustomer },
-      { path: 'orders', name: 'customer.orders', component: CustomerOrders },
-      { path: 'billing', name: 'customer.billing', component: CustomerBilling },
+      { path: '', component: CustomerHome },
+      { path: 'products', component: CustomerProducts },
+      { path: 'products/:slug', component: ProductDetail }, 
+      { path: 'login', component: Login },
+      { path: 'register', component: Register },
+      
+      // Rute Publik Baru yang Ditambahkan
+      { path: 'about', component: CustomerAbout },
+      { path: 'media', component: CustomerMedia },
+      { path: 'support', component: CustomerSupport },
     ]
   },
 
-  /*
-  |--------------------------------------------------------------------------
-  | 3. ADMINISTRATOR GROUP (Menggunakan Sidebar Panel Kiri Hitam)
-  |--------------------------------------------------------------------------
-  */
+  /* * 2. CUSTOMER DASHBOARD / PORTAL 
+   * Menggunakan DashboardCustomerLayout
+   * Wajib Login (meta: requiresAuth)
+   */
+  {
+    path: '/dashboard/customer',
+    component: DashboardCustomerLayout,
+    meta: { requiresAuth: true, role: 'customer' },
+    children: [
+      { path: '', component: CustomerDashboard },
+      { path: 'orders', component: CustomerOrders },
+      // { path: 'billing', component: CustomerBilling },
+    ]
+  },
+
+  /* * 3. ADMIN DASHBOARD 
+   * Menggunakan AdminLayout
+   * Wajib Login & Role Admin
+   */
   {
     path: '/admin',
-    component: AdminLayout, // Menggunakan Layout Sidebar Admin Baru kita
-    meta: { requiresAuth: true, role: 'admin' }, // Kunci hak akses wajib admin
+    component: AdminLayout,
+    meta: { requiresAuth: true, role: 'admin' },
     children: [
-      { 
-        path: 'dashboard', 
-        name: 'admin.dashboard', 
-        component: () => import('../components/admin/Dashboard.vue') 
-      },
-      { 
-        path: 'sales', 
-        name: 'admin.sales', 
-        component: { template: '<div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200"><h1 class="text-2xl font-black text-slate-800">Manajemen Sales & Marketing Leads</h1><p class="text-slate-400 text-sm mt-1">Daftar leads dari tabel marketing_leads akan ditarik ke sini.</p></div>' } 
-      },
-      { 
-        path: 'products', 
-        name: 'admin.products', 
-        component: { template: '<div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200"><h1 class="text-2xl font-black text-slate-800">Kelola Produk & Solusi</h1><p class="text-slate-400 text-sm mt-1">Form untuk menambah/menghapus produk portal customer.</p></div>' } 
-      },
-      { 
-        path: 'media', 
-        name: 'admin.media', 
-        component: { template: '<div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200"><h1 class="text-2xl font-black text-slate-800">Manajemen Berita & Artikel Media</h1><p class="text-slate-400 text-sm mt-1">Gunakan halaman ini untuk memposting artikel baru.</p></div>' } 
-      },
-      { 
-        path: 'support', 
-        name: 'admin.support', 
-        component: { template: '<div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200"><h1 class="text-2xl font-black text-slate-800">Pusat Tiket Kendala Pelanggan</h1><p class="text-slate-400 text-sm mt-1">Balas tiket keluhan dan kelola tutorial sistem.</p></div>' } 
-      },
-      { 
-        path: 'setup', 
-        name: 'admin.setup', 
-        component: { template: '<div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200"><h1 class="text-2xl font-black text-slate-800">Konfigurasi Pengaturan Sistem</h1><p class="text-slate-400 text-sm mt-1">Pengaturan website umum, user access role, dan konfigurasi payment.</p></div>' } 
-      },
+      { path: 'dashboard', component: AdminDashboard },
+      { path: 'products', component: AdminProducts },
+      // route admin lainnya (sales, media, setup)...
     ]
-  }
+  },
+  
+  // Redirect root ke /customer
+  { path: '/', redirect: '/customer' }
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 });
 
-// Router Guard (Sistem Otentikasi & Validasi Role)
-router.beforeEach((to, from, next) => {
+// Middleware (Navigation Guard) untuk proteksi halaman
+router.beforeEach((to, from) => {
   const token = localStorage.getItem('access_token');
-  const userRole = localStorage.getItem('user_role');
+  const userRole = localStorage.getItem('user_role'); // 'admin' atau 'customer'
 
-  if (to.meta.requiresAuth) {
-    if (!token) return next({ name: 'login' });
-    if (to.meta.role && to.meta.role !== userRole) {
-      return userRole === 'admin' ? next({ name: 'admin.dashboard' }) : next({ name: 'customer.dashboard' });
+  if (to.meta.requiresAuth && !token) {
+    // Jika butuh login tapi belum ada token, lempar ke login
+    return '/customer/login';
+  } 
+  
+  if (to.meta.requiresAuth && to.meta.role && to.meta.role !== userRole) {
+    // Jika login tapi rolenya salah (misal customer mencoba buka /admin)
+    if (userRole === 'admin') {
+      return '/admin/dashboard';
+    } else {
+      return '/dashboard/customer';
     }
   }
-
-  if ((to.name === 'login' || to.name === 'register') && token) {
-    return userRole === 'admin' ? next({ name: 'admin.dashboard' }) : next({ name: 'customer.dashboard' });
-  }
-
-  next();
 });
 
 export default router;

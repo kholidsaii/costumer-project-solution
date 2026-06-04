@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('products', function (Blueprint $table) {
+        Schema::create('product_changelogs', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->text('description');
-            $table->string('image')->nullable(); // Untuk gambar card
-            $table->decimal('price', 15, 2)->default(0);
-            $table->boolean('is_active')->default(true);
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->string('version');
+            $table->text('changes');
+            $table->date('release_date');
             $table->timestamps();
         });
     }
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('products');
+        Schema::dropIfExists('product_changelogs');
     }
 };

@@ -8,14 +8,13 @@ class Order extends Model
 {
     protected $fillable = ['user_id', 'product_id', 'order_number', 'total_amount', 'status'];
 
-    public function user() {
-        return $this->belongsTo(User::class);
-    }
-    public function product() {
+    public function product()
+    {
         return $this->belongsTo(Product::class);
     }
-    // Satu order punya satu tagihan (billing)
-    public function billing() {
-        return $this->hasOne(Billing::class);
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

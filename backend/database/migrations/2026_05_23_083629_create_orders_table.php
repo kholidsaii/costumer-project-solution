@@ -9,15 +9,15 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // Order milik siapa
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade'); // Produk apa
+            $table->foreignId('user_id')->constrained();
+            $table->foreignId('product_id')->constrained();
             $table->string('order_number')->unique();
             $table->decimal('total_amount', 15, 2);
-            $table->enum('status', ['pending', 'processing', 'completed', 'cancelled'])->default('pending');
+            $table->enum('status', ['pending', 'paid', 'completed', 'cancelled'])->default('pending');
             $table->timestamps();
         });
     }
