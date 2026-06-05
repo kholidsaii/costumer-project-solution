@@ -13,10 +13,6 @@ const loading = ref(true);
 const BASE_URL = 'http://localhost:8000';
 const tabs = ['Overview', 'Features', 'Screenshots', 'Reviews', 'FAQ', 'Changelog'];
 
-// Form State untuk Review
-const reviewForm = ref({ rating: 5, comment: '' });
-const submittingReview = ref(false);
-
 const fetchProductData = async () => {
   loading.value = true;
   try {
@@ -34,6 +30,7 @@ onMounted(fetchProductData);
 const handlePlaceOrder = async () => {
   const token = localStorage.getItem('access_token');
   if (!token) {
+    // Simpan ID produk ke memori, lalu paksa login
     localStorage.setItem('intended_order_product_id', product.value.id);
     router.push('/customer/login');
   } else {
@@ -45,34 +42,6 @@ const handlePlaceOrder = async () => {
     } catch (error) {
       alert('Gagal memproses pemesanan.');
     }
-  }
-};
-
-const submitReview = async () => {
-  const token = localStorage.getItem('access_token');
-  if (!token) {
-    alert("Silakan login terlebih dahulu untuk memberikan review.");
-    router.push('/customer/login');
-    return;
-  }
-  
-  submittingReview.value = true;
-  try {
-    await axios.post(`${BASE_URL}/api/customer/reviews`, {
-      product_id: product.value.id,
-      rating: reviewForm.value.rating,
-      comment: reviewForm.value.comment
-    }, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
-    });
-    
-    alert("Review berhasil dikirim! Terima kasih.");
-    reviewForm.value.comment = ''; // Reset Form
-    fetchProductData(); // Panggil ulang data agar review baru langsung muncul
-  } catch (error) {
-    alert("Gagal mengirim review.");
-  } finally {
-    submittingReview.value = false;
   }
 };
 
@@ -120,8 +89,16 @@ const formatPrice = (price: any) => {
           <h1 class="text-2xl font-black text-slate-800 mb-3">{{ product.name }}</h1>
           <p class="text-[13px] text-slate-500 leading-relaxed mb-4">{{ product.description }}</p>
           
-          <div class="flex items-center gap-1 text-yellow-400 text-sm mb-4">
-            ⭐⭐⭐⭐⭐ <span class="text-slate-400 text-xs ml-2 font-bold">{{ product.reviews_avg_rating ? parseFloat(product.reviews_avg_rating).toFixed(1) : '5.0' }} ({{ product.reviews_count || 0 }} reviews)</span>
+          <div class="flex items-center gap-1 text-sm mb-4">
+            <div class="flex text-lg">
+              <!-- Looping Bintang Rata-rata -->
+              <span v-for="star in 5" :key="star" :class="star <= Math.round(product.reviews_avg_rating || 0) ? 'text-yellow-400' : 'text-slate-200'">
+                ★
+              </span>
+            </div>
+            <span class="text-slate-400 text-xs ml-2 font-bold">
+              {{ product.reviews_avg_rating ? parseFloat(product.reviews_avg_rating).toFixed(1) : '0.0' }} ({{ product.reviews_count || 0 }} reviews)
+            </span>
           </div>
         </div>
 
@@ -147,14 +124,11 @@ const formatPrice = (price: any) => {
       </div>
 
       <div class="flex flex-col lg:flex-row gap-8">
-        
         <div class="flex-1">
+          <!-- Overview -->
           <div v-if="activeTab === 'Overview'">
             <h3 class="text-lg font-black text-slate-800 mb-3">Description</h3>
-            <div class="text-[13px] text-slate-600 leading-relaxed mb-8 whitespace-pre-line">
-              {{ product.overview || 'Deskripsi detail produk belum tersedia.' }}
-            </div>
-
+            <div class="text-[13px] text-slate-600 leading-relaxed mb-8 whitespace-pre-line">{{ product.overview || '-' }}</div>
             <h3 class="text-lg font-black text-slate-800 mb-4">Key Features</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <template v-if="product.features && product.features.length">
@@ -169,16 +143,15 @@ const formatPrice = (price: any) => {
             </div>
           </div>
           
+          <!-- Screenshots -->
           <div v-else-if="activeTab === 'Screenshots'">
             <h3 class="text-lg font-black text-slate-800 mb-4">Product Screenshots</h3>
             <div v-if="product.screenshots && product.screenshots.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <img v-for="shot in product.screenshots" :key="shot.id" :src="`${BASE_URL}/storage/${shot.image_path}`" class="w-full h-auto rounded-xl border border-slate-200 shadow-sm hover:scale-[1.02] transition-transform cursor-pointer" />
             </div>
-            <div v-else class="text-sm text-slate-400 font-bold py-10 text-center bg-slate-50 rounded-xl border border-slate-100">
-              Belum ada screenshot untuk produk ini.
-            </div>
           </div>
 
+          <!-- REVIEWS (HANYA MENAMPILKAN, TANPA FORM) -->
           <div v-else-if="activeTab === 'Reviews'">
             <div class="flex justify-between items-center mb-6">
               <h3 class="text-lg font-black text-slate-800">Customer Reviews</h3>
@@ -190,35 +163,25 @@ const formatPrice = (price: any) => {
                   <div class="w-8 h-8 rounded-full bg-[#42B8E6] text-white flex items-center justify-center font-black text-xs uppercase">{{ review.user?.name?.charAt(0) || 'U' }}</div>
                   <div>
                     <h5 class="text-xs font-black text-slate-800">{{ review.user?.name || 'Customer' }}</h5>
-                    <div class="text-[10px] text-yellow-400">{{ '⭐'.repeat(review.rating) }}</div>
+                    <div class="text-[12px] flex">
+                    <span v-for="star in 5" :key="star" :class="star <= review.rating ? 'text-yellow-400' : 'text-slate-200'">
+                        ★
+                    </span>
+                    </div>
                   </div>
                 </div>
                 <p class="text-[13px] text-slate-600">{{ review.comment }}</p>
               </div>
             </div>
-            <div v-else class="text-sm text-slate-400 font-bold py-6 text-center">Belum ada review.</div>
+            <div v-else class="text-sm text-slate-400 font-bold py-6 text-center">Belum ada review untuk produk ini.</div>
 
-            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <h4 class="font-black text-sm text-slate-800 mb-3">Tulis Review Anda</h4>
-              <form @submit.prevent="submitReview">
-                <div class="mb-3">
-                  <label class="block text-xs font-bold text-slate-500 mb-1">Rating (1-5)</label>
-                  <select v-model="reviewForm.rating" class="w-full md:w-32 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#42B8E6]">
-                    <option value="5">⭐⭐⭐⭐⭐ (5)</option>
-                    <option value="4">⭐⭐⭐⭐ (4)</option>
-                    <option value="3">⭐⭐⭐ (3)</option>
-                    <option value="2">⭐⭐ (2)</option>
-                    <option value="1">⭐ (1)</option>
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label class="block text-xs font-bold text-slate-500 mb-1">Komentar</label>
-                  <textarea v-model="reviewForm.comment" required rows="3" placeholder="Bagaimana pengalaman Anda menggunakan produk ini?" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#42B8E6]"></textarea>
-                </div>
-                <button type="submit" :disabled="submittingReview" class="bg-[#51C4ED] text-white px-6 py-2 rounded-lg text-xs font-black hover:bg-[#42B8E6] transition-colors disabled:opacity-50">
-                  {{ submittingReview ? 'Mengirim...' : 'Kirim Review' }}
-                </button>
-              </form>
+            <!-- Ajakan Login untuk mereview -->
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-6 text-center shadow-sm">
+              <h4 class="font-black text-sm text-blue-800 mb-2">Sudah Membeli Produk Ini?</h4>
+              <p class="text-xs text-blue-600 mb-4">Bagikan pengalaman Anda! Masuk ke Portal Pelanggan untuk memberikan rating dan ulasan.</p>
+              <button @click="router.push('/dashboard/customer/products')" class="bg-blue-600 text-white px-6 py-2 rounded-lg text-xs font-black hover:bg-blue-700 transition-colors">
+                Buka Portal Customer
+              </button>
             </div>
           </div>
 

@@ -1,13 +1,37 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import axios from 'axios';
 
+const router = useRouter();
 const userName = ref(localStorage.getItem('user_name') || 'Pelanggan');
+const BASE_URL = 'http://localhost:8000';
 
 const cards = ref([
-  { title: 'Project Dalam Pengerjaan', value: '1 Sistem', desc: 'Sistem EMR Rumah Sakit', icon: '🚀', color: 'border-blue-500 text-blue-600 bg-blue-50/50' },
-  { title: 'Invoice Belum Terbayar', value: 'Rp 50.000.000', desc: 'Jatuh tempo dalam 7 hari', icon: '💳', color: 'border-amber-500 text-amber-600 bg-amber-50/50' },
+  { title: 'Project Dalam Pengerjaan', value: '1 Sistem', desc: 'Sistem KerjaPro', icon: '💻', color: 'border-blue-500 text-blue-600 bg-blue-50/50' },
+  { title: 'Invoice Belum Terbayar', value: 'Rp 0', desc: 'Cek menu Tagihan', icon: '💳', color: 'border-amber-500 text-amber-600 bg-amber-50/50' },
   { title: 'Tiket Support Aktif', value: '0 Tiket', desc: 'Semua kendala terselesaikan', icon: '🎧', color: 'border-emerald-500 text-emerald-600 bg-emerald-50/50' }
 ]);
+
+onMounted(async () => {
+  // --- FITUR AUTO-ORDER JIKA BERASAL DARI HALAMAN LUAR ---
+  const intendedProductId = localStorage.getItem('intended_order_product_id');
+  const token = localStorage.getItem('access_token');
+  
+  if (intendedProductId && token) {
+    try {
+      await axios.post(`${BASE_URL}/api/customer/orders`, { product_id: intendedProductId }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      localStorage.removeItem('intended_order_product_id'); // Bersihkan
+      alert('Pesanan tertunda Anda berhasil diproses!');
+      router.push('/dashboard/customer/orders'); // Lempar ke halaman pesanan
+    } catch (error) {
+      console.error('Gagal memproses auto-order', error);
+      localStorage.removeItem('intended_order_product_id');
+    }
+  }
+});
 </script>
 
 <template>
@@ -15,7 +39,7 @@ const cards = ref([
     <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm">
       <h1 class="text-2xl md:text-3xl font-black text-slate-800">Halo, {{ userName }}! 👋</h1>
       <p class="text-sm text-slate-500 mt-1 font-medium">
-        Melalui panel ini Anda dapat memantau progress pengerjaan aplikasi, status pembayaran invoice, serta mengajukan bantuan teknis.
+        Melalui panel ini Anda dapat memantau progress pengerjaan aplikasi, mencari produk baru, serta mengajukan bantuan teknis.
       </p>
     </div>
 
@@ -39,7 +63,7 @@ const cards = ref([
         <span>📢</span> Pengumuman Sistem
       </h3>
       <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-600 leading-relaxed">
-        Maintenance server bulanan akan dilakukan pada hari Sabtu pukul 23:00 WIB. Uptime aplikasi Anda dijamin tidak akan terganggu selama proses ini berlangsung.
+        Selamat datang di Portal Pelanggan KerjaPro! Sekarang Anda bisa langsung memberikan review pada produk yang sudah Anda gunakan melalui menu <strong>Product Portal</strong> di sidebar.
       </div>
     </div>
   </div>

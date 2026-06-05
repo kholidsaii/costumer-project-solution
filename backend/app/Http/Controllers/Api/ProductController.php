@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Storage;
 class ProductController extends Controller
 {
     public function index(Request $request) {
-        $query = Product::where('is_active', true);
+        // PERBAIKAN: Tambahkan with(['reviews.user']) agar review terbaca di Portal
+        $query = Product::where('is_active', true)->with(['reviews.user']);
+        
         if ($request->filled('category') && $request->category !== 'All Categories') $query->where('category', $request->category);
         if ($request->filled('price_range')) {
             switch ($request->price_range) {
@@ -99,13 +101,11 @@ class ProductController extends Controller
 
         $validated['slug'] = Str::slug($validated['name']);
         
-        // --- LOGIKA HAPUS GAMBAR UTAMA ---
         if ($request->has('remove_main_image') && $request->remove_main_image == 'true') {
             if ($product->image) Storage::disk('public')->delete($product->image);
-            $validated['image'] = null; // Set null di database
+            $validated['image'] = null; 
         }
 
-        // --- LOGIKA UPLOAD GAMBAR UTAMA BARU ---
         if ($request->hasFile('image')) {
             if ($product->image) Storage::disk('public')->delete($product->image);
             $validated['image'] = $request->file('image')->store('products', 'public');
@@ -113,7 +113,6 @@ class ProductController extends Controller
 
         $product->update($validated);
 
-        // Update Text Arrays
         $product->features()->delete();
         $product->faqs()->delete();
         $product->changelogs()->delete();
@@ -122,7 +121,6 @@ class ProductController extends Controller
         if (!empty($request->faqs)) $product->faqs()->createMany($request->faqs);
         if (!empty($request->changelogs)) $product->changelogs()->createMany($request->changelogs);
 
-        // Update Screenshots Lama
         if ($request->has('deleted_screenshots')) {
             foreach ($request->deleted_screenshots as $ss_id) {
                 $ss = ProductScreenshot::find($ss_id);
@@ -133,7 +131,6 @@ class ProductController extends Controller
             }
         }
 
-        // Tambah Screenshots Baru
         if ($request->hasFile('screenshots')) {
             foreach ($request->file('screenshots') as $file) {
                 $path = $file->store('products/screenshots', 'public');

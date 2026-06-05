@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ReviewController extends Controller
 {
-    // [CUSTOMER] Menyimpan review produk
+    // [CUSTOMER] Menyimpan ATAU Mengupdate review produk
     public function store(Request $request)
     {
         $request->validate([
@@ -18,15 +18,21 @@ class ReviewController extends Controller
             'comment' => 'required|string',
         ]);
 
-        $review = Review::create([
-            'product_id' => $request->product_id,
-            'user_id' => Auth::id(),
-            'rating' => $request->rating,
-            'comment' => $request->comment,
-        ]);
+        // updateOrCreate akan mencari review berdasarkan product_id dan user_id
+        // Jika ketemu, dia akan mengupdate rating & comment. Jika tidak, dia akan buat baru.
+        $review = Review::updateOrCreate(
+            [
+                'product_id' => $request->product_id,
+                'user_id' => Auth::id(),
+            ],
+            [
+                'rating' => $request->rating,
+                'comment' => $request->comment,
+            ]
+        );
 
         $review->load('user'); // Load data user agar nama langsung muncul di frontend
 
-        return response()->json(['message' => 'Review berhasil dikirim', 'data' => $review], 201);
+        return response()->json(['message' => 'Review berhasil disimpan', 'data' => $review], 200);
     }
 }

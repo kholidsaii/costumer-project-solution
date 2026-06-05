@@ -165,4 +165,11 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password berhasil diubah. Silakan login.']);
     }
+    
+    // [ADMIN] Lihat daftar customer
+    public function adminCustomers()
+    {
+        $customers = User::where('role', 'customer')->latest()->get();
+        return response()->json($customers, 200);
+    }
 }
