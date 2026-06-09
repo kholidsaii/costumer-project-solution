@@ -20,14 +20,15 @@ Route::get('/auth/google', [AuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
 Route::get('/products', [ProductController::class, 'index']); 
 Route::get('/products/{slug}', [ProductController::class, 'show']); 
+Route::get('/tiers', [AuthController::class, 'getTiers']); 
 
 // ==========================================
 // 2. PROTECTED ROUTES (Wajib Login)
 // ==========================================
 Route::middleware('auth:sanctum')->group(function () {
+    
+    // FIX 404 LOGOUT: Tambahkan route logout di sini karena butuh auth
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/user', function (Request $request) { return $request->user(); });
-    Route::post('/reviews', [ReviewController::class, 'store']); 
 
     // ------------------------------------------
     // 3. CUSTOMER ROUTES
@@ -49,6 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/orders/{id}/approve', [OrderController::class, 'approve']);
         Route::post('/orders/{id}/reject', [OrderController::class, 'reject']);
         Route::get('/billings', [BillingController::class, 'adminIndex']);
+
+        // Master Setup Member / Tier
+        Route::put('/tiers/{id}', [AuthController::class, 'updateTier']);
 
         // Manajemen Produk
         Route::get('/products', [ProductController::class, 'adminIndex']);

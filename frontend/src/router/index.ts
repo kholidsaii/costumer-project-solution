@@ -26,9 +26,14 @@ import AdminOrders from '../components/admin/business/AdminOrders.vue';
 import AdminBillings from '../components/admin/business/AdminBillings.vue';
 import AdminCustomers from '../components/admin/business/AdminCustomers.vue';
 
+// Setup Tiers
+import AdminTiers from '../components/admin/setup/AdminTiers.vue'; 
+
 // Auth
 import Login from '../components/auth/LoginAkses.vue';
 import Register from '../components/auth/RegisterAkses.vue';
+// Misal Anda memiliki komponen ForgotPassword:
+// import ForgotPassword from '../components/auth/ForgotPassword.vue';
 
 const routes = [
   {
@@ -37,12 +42,14 @@ const routes = [
     children: [
       { path: '', component: CustomerHome },
       { path: 'products', component: CustomerProducts },
-      { path: 'products/:slug', component: ProductDetail }, 
-      { path: 'login', component: Login },
-      { path: 'register', component: Register },
+      { path: 'products/:slug', component: ProductDetail },
       { path: 'about', component: CustomerAbout },
       { path: 'media', component: CustomerMedia },
       { path: 'support', component: CustomerSupport },
+      { path: 'login', component: Login, meta: { guestOnly: true } },
+      { path: 'register', component: Register, meta: { guestOnly: true } },
+      // FIX ROUTE ERROR: Menambahkan forgot password
+      { path: 'forgot-password', component: { template: '<div>Halaman Forgot Password</div>' }, meta: { guestOnly: true } },
     ]
   },
   {
@@ -67,6 +74,9 @@ const routes = [
       { path: 'orders', component: AdminOrders },
       { path: 'billings', component: AdminBillings },
       { path: 'customers', component: AdminCustomers },
+      { path: 'tiers', component: AdminTiers },
+      // Menambahkan fallback untuk route yang sering salah ketik
+      { path: 'sales', redirect: '/admin/orders' },
     ]
   },
   { path: '/', redirect: '/customer' }
@@ -74,14 +84,20 @@ const routes = [
 
 const router = createRouter({ history: createWebHistory(), routes });
 
+// FIX VUE ROUTER: Menggunakan return value untuk menggantikan next()
 router.beforeEach((to, from) => {
   const token = localStorage.getItem('access_token');
   const userRole = localStorage.getItem('user_role');
 
-  if (to.meta.requiresAuth && !token) return '/customer/login';
-  if (to.meta.requiresAuth && to.meta.role && to.meta.role !== userRole) {
+  if (to.meta.requiresAuth && !token) {
+    return '/customer/login';
+  } else if (to.meta.guestOnly && token) {
+    return userRole === 'admin' ? '/admin/dashboard' : '/dashboard/customer';
+  } else if (to.meta.requiresAuth && to.meta.role && to.meta.role !== userRole) {
     return userRole === 'admin' ? '/admin/dashboard' : '/dashboard/customer';
   }
+  
+  return true; // Lanjutkan navigasi
 });
 
 export default router;

@@ -18,7 +18,13 @@ return new class extends Migration
             $table->text('description'); // Deskripsi singkat
             $table->longText('overview'); // Deskripsi lengkap untuk tab Overview
             $table->decimal('price', 15, 2);
-            $table->string('category');
+            $table->string('category'); // Menampung nilai Jenis Produk (Software, Digital, Fisik)
+            
+            // --- PENAMBAHAN BARU ---
+            $table->string('access_tier')->default('all'); // Akses: gold, silver, free, all
+            $table->integer('quantity')->default(0); // Untuk stok produk fisik
+            // -----------------------
+
             $table->boolean('is_active')->default(true);
             $table->string('image')->nullable();
             $table->timestamps();

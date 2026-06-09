@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+// Menggunakan instance Axios custom (axios.ts)
+// Pastikan path import di bawah ini disesuaikan dengan letak folder API Anda
+import api from '../../../api/axios'; 
 
-const BASE_URL = 'http://localhost:8000';
-const getToken = () => localStorage.getItem('access_token');
-const axiosConfig = () => ({
-  headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json' }
-});
+const BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:8000';
 
 const products = ref<any[]>([]);
 const loading = ref(true);
@@ -28,236 +26,210 @@ const existingScreenshots = ref<any[]>([]);
 const deletedScreenshots = ref<number[]>([]); 
 const newScreenshots = ref<{ file: File, preview: string }[]>([]); 
 
-const categories = ['Software', 'Templates', 'Integrations', 'Services'];
+// 1. Tambahkan Interface (KTP) ini agar TypeScript tahu isi form-nya
+interface FormState {
+  id: number | null;
+  name: string;
+  description: string;
+  overview: string;
+  price: number;
+  type: string;
+  access_tier: string;
+  quantity: number;
+  is_active: boolean;
+  features: any[];
+  faqs: any[];
+  changelogs: any[];
+}
 
-const defaultForm = {
-  id: null, name: '', description: '', overview: '', price: 0, category: 'Software',
-  is_active: true, features: [], faqs: [], changelogs: []
+// 2. Terapkan Interface tersebut ke defaultForm
+const defaultForm: FormState = {
+  id: null, name: '', description: '', overview: '', price: 0, 
+  type: '', 
+  access_tier: '', 
+  quantity: 0, 
+  is_active: true, 
+  features: [], faqs: [], changelogs: []
 };
-const formData = ref(JSON.parse(JSON.stringify(defaultForm)));
+const form = ref<FormState>(JSON.parse(JSON.stringify(defaultForm)));
+
+const activeTab = ref('Dasar');
+const tabs = ['Dasar', 'Media', 'Fitur', 'FAQ', 'Pembaruan'];
 
 const fetchProducts = async () => {
   loading.value = true;
   try {
-    const response = await axios.get(`${BASE_URL}/api/admin/products`, axiosConfig()); 
-    products.value = Array.isArray(response.data) ? response.data : (response.data.data || []);
+    const response = await api.get('/admin/products');
+    products.value = response.data;
   } catch (error) {
-    products.value = [];
-  } finally { loading.value = false; }
+    console.error('Gagal memuat produk:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
 onMounted(fetchProducts);
 
-const addFeature = () => formData.value.features.push({ title: '', description: '' });
-const removeFeature = (index: any) => formData.value.features.splice(index, 1);
-const addFaq = () => formData.value.faqs.push({ question: '', answer: '' });
-const removeFaq = (index: any) => formData.value.faqs.splice(index, 1);
-const addChangelog = () => formData.value.changelogs.push({ version: '', release_date: '', changes: '' });
-const removeChangelog = (index: any) => formData.value.changelogs.splice(index, 1);
-
-// ===== LOGIKA DRAG & DROP GAMBAR UTAMA =====
-const onDragOverMain = (e: DragEvent) => { e.preventDefault(); isDraggingMain.value = true; };
-const onDragLeaveMain = () => { isDraggingMain.value = false; };
-const onDropMain = (e: DragEvent) => {
-  e.preventDefault(); isDraggingMain.value = false;
-  if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) processMainImage(e.dataTransfer.files[0]);
-};
-const onFileSelectMain = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) processMainImage(target.files[0]);
+const handleTypeChange = () => {
+  if (form.value.type === 'Software') {
+    form.value.access_tier = 'gold';
+    form.value.quantity = 0;
+  } else if (form.value.type === 'Digital') {
+    form.value.access_tier = 'free';
+    form.value.quantity = 0;
+  } else if (form.value.type === 'Fisik') {
+    form.value.access_tier = 'all';
+    form.value.quantity = 1;
+  }
 };
 
-const processMainImage = (file: File) => {
-  if (file.type.startsWith('image/')) {
+const openModal = () => {
+  isModalOpen.value = true;
+  isEditMode.value = false;
+  form.value = JSON.parse(JSON.stringify(defaultForm));
+  resetImageState();
+  activeTab.value = 'Dasar';
+};
+
+const closeModal = () => {
+  isModalOpen.value = false;
+  resetImageState();
+};
+
+const resetImageState = () => {
+  imageFile.value = null; mainImagePreview.value = null; existingMainImage.value = null; removeMainImageFlag.value = false;
+  screenshotFiles.value = []; existingScreenshots.value = []; deletedScreenshots.value = []; newScreenshots.value = [];
+};
+
+const editProduct = (product: any) => {
+  isModalOpen.value = true;
+  isEditMode.value = true;
+  form.value = JSON.parse(JSON.stringify(product));
+  
+  if(!form.value.type) form.value.type = product.category || '';
+  
+  activeTab.value = 'Dasar';
+  resetImageState();
+
+  if (product.image) existingMainImage.value = `${BASE_URL}/storage/${product.image}`;
+  if (product.screenshots) existingScreenshots.value = [...product.screenshots];
+};
+
+const deleteProduct = async (id: number) => {
+  if (!confirm('Hapus produk ini?')) return;
+  try {
+    await api.delete(`/admin/products/${id}`);
+    fetchProducts();
+  } catch (error) { console.error('Gagal menghapus produk', error); }
+};
+
+const handleMainImageUpload = (event: any) => {
+  const file = event.target.files[0];
+  if (file) {
     imageFile.value = file;
-    if (mainImagePreview.value) URL.revokeObjectURL(mainImagePreview.value);
     mainImagePreview.value = URL.createObjectURL(file);
     removeMainImageFlag.value = false;
   }
 };
 
 const removeMainImage = () => {
-  if (mainImagePreview.value) URL.revokeObjectURL(mainImagePreview.value);
-  mainImagePreview.value = null;
   imageFile.value = null;
-  if (existingMainImage.value) {
-    removeMainImageFlag.value = true;
-    existingMainImage.value = null;
-  }
+  mainImagePreview.value = null;
+  existingMainImage.value = null;
+  removeMainImageFlag.value = true;
 };
 
-// ===== LOGIKA DRAG & DROP SCREENSHOTS =====
-const onDragOverSS = (e: DragEvent) => { e.preventDefault(); isDraggingSS.value = true; };
-const onDragLeaveSS = () => { isDraggingSS.value = false; };
-const onDropSS = (e: DragEvent) => {
-  e.preventDefault(); isDraggingSS.value = false;
-  if (e.dataTransfer?.files) processScreenshots(e.dataTransfer.files);
-};
-const onFileSelectSS = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  if (target.files) processScreenshots(target.files);
-};
-
-const processScreenshots = (files: FileList) => {
-  Array.from(files).forEach(file => {
-    if (file.type.startsWith('image/')) {
-      newScreenshots.value.push({ file: file, preview: URL.createObjectURL(file) });
-    }
+const handleScreenshotsUpload = (event: any) => {
+  const files = Array.from(event.target.files) as File[];
+  files.forEach(file => {
+    screenshotFiles.value.push(file);
+    newScreenshots.value.push({ file, preview: URL.createObjectURL(file) });
   });
 };
 
-const removeExistingScreenshot = (index: number) => {
-  deletedScreenshots.value.push(existingScreenshots.value[index].id);
-  existingScreenshots.value.splice(index, 1);
+// Mengubah parameter 'index' menjadi 'idx' agar lebih aman
+const removeNewScreenshot = (idx: number) => {
+  newScreenshots.value.splice(idx, 1);
+  screenshotFiles.value.splice(idx, 1);
 };
 
-const removeNewScreenshot = (index: number) => {
-  URL.revokeObjectURL(newScreenshots.value[index].preview); 
-  newScreenshots.value.splice(index, 1);
+const removeExistingScreenshot = (id: number, idx: number) => {
+  deletedScreenshots.value.push(id);
+  existingScreenshots.value.splice(idx, 1);
 };
 
-// ===== MODAL CONTROLS =====
-const openAddModal = () => {
-  isEditMode.value = false;
-  
-  // Reset Main Image
-  existingMainImage.value = null;
-  if (mainImagePreview.value) URL.revokeObjectURL(mainImagePreview.value);
-  mainImagePreview.value = null;
-  removeMainImageFlag.value = false;
-  imageFile.value = null;
-
-  // Reset Screenshots
-  existingScreenshots.value = [];
-  deletedScreenshots.value = [];
-  newScreenshots.value.forEach(s => URL.revokeObjectURL(s.preview));
-  newScreenshots.value = [];
-  
-  formData.value = JSON.parse(JSON.stringify(defaultForm));
-  isModalOpen.value = true;
-};
-
-const openEditModal = async (product: any) => {
-  isEditMode.value = true;
-  
-  // Reset Main Image
-  if (mainImagePreview.value) URL.revokeObjectURL(mainImagePreview.value);
-  mainImagePreview.value = null;
-  removeMainImageFlag.value = false;
-  imageFile.value = null;
-
-  // Reset Screenshots
-  deletedScreenshots.value = [];
-  newScreenshots.value.forEach(s => URL.revokeObjectURL(s.preview));
-  newScreenshots.value = [];
-
-  try {
-    const response = await axios.get(`${BASE_URL}/api/products/${product.slug}`);
-    const detail = response.data;
-    formData.value = {
-      id: detail.id, name: detail.name, description: detail.description, overview: detail.overview,
-      price: detail.price, category: detail.category, is_active: detail.is_active,
-      features: detail.features || [], faqs: detail.faqs || [], changelogs: detail.changelogs || []
-    };
-    
-    // Load existing images
-    existingMainImage.value = detail.image || null;
-    existingScreenshots.value = detail.screenshots || [];
-    
-    isModalOpen.value = true;
-  } catch (error) { alert('Gagal mengambil detail produk.'); }
-};
-
-const closeModal = () => {
-  if (mainImagePreview.value) URL.revokeObjectURL(mainImagePreview.value);
-  newScreenshots.value.forEach(s => URL.revokeObjectURL(s.preview)); 
-  isModalOpen.value = false;
-};
-
-// ===== SUBMIT FORM =====
-const handleSubmit = async () => {
+const submitProduct = async () => {
   submitting.value = true;
-  try {
-    const data = new FormData();
-    data.append('name', formData.value.name);
-    data.append('description', formData.value.description);
-    data.append('overview', formData.value.overview);
-    data.append('price', formData.value.price);
-    data.append('category', formData.value.category);
-    data.append('is_active', formData.value.is_active ? '1' : '0');
-    
-    // Append Main Image & Flag
-    if (imageFile.value) data.append('image', imageFile.value);
-    if (removeMainImageFlag.value) data.append('remove_main_image', 'true');
-
-    // Append File Screenshots Baru
-    newScreenshots.value.forEach((item, index) => {
-      data.append(`screenshots[${index}]`, item.file);
-    });
-
-    // Append ID Screenshots Lama yg Dihapus
-    deletedScreenshots.value.forEach((id, index) => {
-      data.append(`deleted_screenshots[${index}]`, id.toString());
-    });
-
-    // Append Text Arrays
-    formData.value.features.forEach((feat: any, i: number) => {
-      data.append(`features[${i}][title]`, feat.title);
-      data.append(`features[${i}][description]`, feat.description);
-    });
-    formData.value.faqs.forEach((faq: any, i: number) => {
-      data.append(`faqs[${i}][question]`, faq.question);
-      data.append(`faqs[${i}][answer]`, faq.answer);
-    });
-    formData.value.changelogs.forEach((log: any, i: number) => {
-      data.append(`changelogs[${i}][version]`, log.version);
-      data.append(`changelogs[${i}][release_date]`, log.release_date);
-      data.append(`changelogs[${i}][changes]`, log.changes);
-    });
-
-    const multipartConfig = {
-      headers: { ...axiosConfig().headers, 'Content-Type': 'multipart/form-data' }
-    };
-
-    if (isEditMode.value) {
-      data.append('_method', 'PUT');
-      await axios.post(`${BASE_URL}/api/admin/products/${formData.value.id}`, data, multipartConfig);
+  const formData = new FormData();
+  
+  // Perbaiki bagian ini dengan TypeScript type assertion (as keyof FormState)
+  (Object.keys(form.value) as Array<keyof FormState>).forEach(key => {
+    if (['features', 'faqs', 'changelogs'].includes(key as string)) {
+      // Pastikan TypeScript tahu ini adalah array sebelum menggunakan forEach
+      const arrayValue = form.value[key];
+      if (Array.isArray(arrayValue)) {
+        arrayValue.forEach((item: any, i: number) => {
+          Object.keys(item).forEach(subKey => formData.append(`${key}[${i}][${subKey}]`, item[subKey]));
+        });
+      }
     } else {
-      await axios.post(`${BASE_URL}/api/admin/products`, data, multipartConfig);
+      // Pastikan nilainya string/blob/null sebelum di-append
+      const value = form.value[key];
+      if (value !== null && value !== undefined) {
+        formData.append(key as string, value.toString());
+      }
+    }
+  });
+
+  // Pastikan property 'category' ditangkap backend (berasal dari form.type)
+  formData.append('category', form.value.type);
+
+  if (imageFile.value) formData.append('image', imageFile.value);
+  if (removeMainImageFlag.value) formData.append('remove_image', '1');
+
+  screenshotFiles.value.forEach(file => formData.append('screenshots[]', file));
+  deletedScreenshots.value.forEach(id => formData.append('deleted_screenshots[]', id.toString()));
+
+  try {
+    if (isEditMode.value && form.value.id) {
+      formData.append('_method', 'PUT');
+      await api.post(`/admin/products/${form.value.id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    } else {
+      await api.post(`/admin/products`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
     }
     closeModal();
     fetchProducts();
   } catch (error) {
-    alert('Terjadi kesalahan saat menyimpan data.');
+    console.error('Gagal menyimpan:', error);
   } finally {
     submitting.value = false;
   }
 };
 
-const deleteProduct = async (id: number) => {
-  if (!confirm('Hapus produk ini secara permanen?')) return;
-  try {
-    await axios.delete(`${BASE_URL}/api/admin/products/${id}`, axiosConfig());
-    fetchProducts();
-  } catch (error) { alert('Gagal menghapus produk.'); }
-};
+// Array Helpers (Parameter diubah menjadi idx)
+const addFeature = () => form.value.features.push({ title: '', description: '' });
+const removeFeature = (idx: number) => form.value.features.splice(idx, 1);
 
-const formatPrice = (price: any) => {
-  const numericPrice = Number(price);
-  if (isNaN(numericPrice) || !price) return 'Rp 0';
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(numericPrice);
-};
+const addFaq = () => form.value.faqs.push({ question: '', answer: '' });
+const removeFaq = (idx: number) => form.value.faqs.splice(idx, 1);
+
+const addChangelog = () => form.value.changelogs.push({ version: '', release_date: '', changes: '' });
+const removeChangelog = (idx: number) => form.value.changelogs.splice(idx, 1);
 </script>
 
 <template>
-  <div>
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+  <div class="p-6 md:p-10 flex-1 max-h-screen overflow-y-auto">
+    <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-2xl font-black text-slate-800">Manajemen Produk</h1>
-        <p class="text-xs font-bold text-slate-500 mt-1">Kelola katalog produk, detail, fitur, dan harga.</p>
+        <p class="text-sm text-slate-500 mt-1">Kelola dan update katalog produk Anda di sini.</p>
       </div>
-      <button @click="openAddModal" class="bg-[#B48440] text-white px-4 py-2.5 rounded-xl text-sm font-black hover:bg-[#91672D] transition shadow-sm flex items-center gap-2">
-        <span>+</span> Tambah Produk Baru
+      <button @click="openModal" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition flex items-center gap-2">
+        <span class="text-lg">+</span> Tambah Produk
       </button>
     </div>
 
@@ -265,36 +237,50 @@ const formatPrice = (price: any) => {
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-black">
-              <th class="p-4">Info Produk</th>
-              <th class="p-4">Kategori</th>
-              <th class="p-4">Harga</th>
-              <th class="p-4">Status</th>
-              <th class="p-4 text-right">Aksi</th>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+              <th class="p-4 font-black">Info Produk</th>
+              <th class="p-4 font-black">Jenis & Harga</th>
+              <th class="p-4 font-black">Akses</th>
+              <th class="p-4 font-black text-center">Status</th>
+              <th class="p-4 font-black text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody class="text-sm">
-            <tr v-if="loading"><td colspan="5" class="p-8 text-center text-slate-400 font-bold">Memuat data...</td></tr>
-            <tr v-else-if="products.length === 0"><td colspan="5" class="p-8 text-center text-slate-400 font-bold">Belum ada produk terdaftar.</td></tr>
-            <tr v-else v-for="product in products" :key="product.id" class="border-b border-slate-100 hover:bg-slate-50 transition">
-              <td class="p-4 flex items-center gap-3">
-                <img v-if="product.image" :src="`${BASE_URL}/storage/${product.image}`" class="w-10 h-10 rounded-lg object-cover shadow-sm border border-slate-200" />
-                <div v-else class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-200">IMG</div>
-                <div>
-                  <p class="font-black text-slate-800">{{ product.name }}</p>
-                  <p class="text-xs text-slate-500 line-clamp-1 mt-0.5 max-w-xs">{{ product.description }}</p>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-if="loading"><td colspan="5" class="p-8 text-center text-slate-400">Memuat data produk...</td></tr>
+            <tr v-else-if="products.length === 0"><td colspan="5" class="p-8 text-center text-slate-400">Belum ada produk.</td></tr>
+            <tr v-else v-for="product in products" :key="product.id" class="hover:bg-slate-50/50 transition">
+              <td class="p-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex-shrink-0 overflow-hidden">
+                    <img v-if="product.image" :src="`${BASE_URL}/storage/${product.image}`" class="w-full h-full object-cover"/>
+                    <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-xs font-bold">Img</div>
+                  </div>
+                  <div>
+                    <div class="font-bold text-slate-800 text-sm line-clamp-1">{{ product.name }}</div>
+                    <div class="text-xs text-slate-500 line-clamp-1">{{ product.description }}</div>
+                  </div>
                 </div>
               </td>
-              <td class="p-4 font-bold text-slate-600">{{ product.category }}</td>
-              <td class="p-4 font-black text-indigo-600">{{ formatPrice(product.price) }}</td>
               <td class="p-4">
-                <span :class="['px-2 py-1 rounded text-[10px] font-black uppercase', product.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700']">
+                <div class="text-sm font-bold text-slate-800">{{ product.category || product.type }}</div>
+                <div class="text-[11px] text-slate-500">Rp {{ product.price.toLocaleString('id-ID') }}</div>
+              </td>
+              <td class="p-4">
+                <span v-if="product.access_tier === 'gold'" class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-md text-[10px] font-black uppercase">Gold</span>
+                <span v-else-if="product.access_tier === 'silver'" class="px-2 py-1 bg-slate-200 text-slate-700 rounded-md text-[10px] font-black uppercase">Silver</span>
+                <span v-else-if="product.access_tier === 'free'" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-[10px] font-black uppercase">Free</span>
+                <span v-else class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-black uppercase">Semua (All)</span>
+              </td>
+              <td class="p-4 text-center">
+                <span :class="product.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" class="px-3 py-1 rounded-full text-xs font-bold">
                   {{ product.is_active ? 'Aktif' : 'Draft' }}
                 </span>
               </td>
-              <td class="p-4 text-right space-x-2">
-                <button @click="openEditModal(product)" class="text-blue-500 hover:text-blue-700 font-bold text-xs bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 transition">Edit Detail</button>
-                <button @click="deleteProduct(product.id)" class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 transition">Hapus</button>
+              <td class="p-4">
+                <div class="flex items-center justify-center gap-2">
+                  <button @click="editProduct(product)" class="p-2 text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-lg transition" title="Edit">✏️</button>
+                  <button @click="deleteProduct(product.id)" class="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition" title="Hapus">🗑️</button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -302,178 +288,225 @@ const formatPrice = (price: any) => {
       </div>
     </div>
 
-    <div v-if="isModalOpen" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
-      <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div v-if="isModalOpen" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in">
         
-        <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <h2 class="text-lg font-black text-slate-800">{{ isEditMode ? 'Edit Produk' : 'Tambah Produk Baru' }}</h2>
-          <button @click="closeModal" class="text-slate-400 hover:text-red-500 text-xl font-black">&times;</button>
+        <div class="p-5 border-b border-slate-200 bg-slate-50 flex flex-col gap-4">
+          <div class="flex justify-between items-center">
+            <h2 class="text-lg font-black text-slate-800">{{ isEditMode ? 'Edit Produk' : 'Tambah Produk Baru' }}</h2>
+            <button @click="closeModal" class="text-slate-400 hover:text-red-500 transition text-xl font-bold">&times;</button>
+          </div>
+          
+          <div>
+            <label class="block text-[12px] font-black text-slate-800 mb-1">Pilih Jenis Produk <span class="text-red-500">*</span></label>
+            <select v-model="form.type" @change="handleTypeChange" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-bold bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition shadow-sm">
+              <option value="" disabled>-- Silakan Pilih Jenis Produk --</option>
+              <option value="Software">💻 Software</option>
+              <option value="Digital">📄 Produk Digital</option>
+              <option value="Fisik">📦 Produk Fisik</option>
+            </select>
+            <p v-if="!form.type" class="text-[11px] text-red-500 mt-1 font-bold">Pilih jenis produk terlebih dahulu untuk memunculkan form isian.</p>
+          </div>
         </div>
 
-        <div class="p-6 overflow-y-auto flex-1 bg-slate-50/50">
-          <form @submit.prevent="handleSubmit" id="productForm" class="space-y-8">
+        <div v-if="form.type" class="flex flex-1 overflow-hidden">
+          
+          <div class="w-48 bg-slate-50 border-r border-slate-200 flex flex-col">
+            <button v-for="tab in tabs" :key="tab" @click="activeTab = tab" 
+              :class="activeTab === tab ? 'bg-white border-l-4 border-blue-600 text-blue-700 font-black' : 'text-slate-600 font-bold hover:bg-slate-100'"
+              class="px-4 py-3 text-left text-sm transition-colors border-b border-slate-100 last:border-0">
+              {{ tab }}
+            </button>
+          </div>
+
+          <form id="productForm" @submit.prevent="submitProduct" class="flex-1 overflow-y-auto p-6 bg-white space-y-6 relative">
             
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 class="font-black text-slate-800 mb-4 border-b border-slate-100 pb-2">Informasi Dasar</h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="md:col-span-2">
-                  <label class="block text-xs font-bold text-slate-500 mb-1">Nama Produk *</label>
-                  <input v-model="formData.name" type="text" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#B48440]" />
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1">Kategori *</label>
-                  <select v-model="formData.category" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#B48440] bg-white">
-                    <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1">Harga (IDR) *</label>
-                  <input v-model="formData.price" type="number" required min="0" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#B48440]" />
-                </div>
-                
-                <div class="md:col-span-2 mt-2">
-                  <label class="block text-xs font-bold text-slate-500 mb-2">Gambar Produk Utama (Thumbnail)</label>
-                  
-                  <div v-if="!existingMainImage && !mainImagePreview"
-                    @dragover="onDragOverMain" 
-                    @dragleave="onDragLeaveMain" 
-                    @drop="onDropMain"
-                    :class="['border-2 border-dashed rounded-xl p-6 text-center transition-colors flex flex-col items-center justify-center', 
-                    isDraggingMain ? 'border-[#B48440] bg-yellow-50/30' : 'border-slate-300 bg-slate-50 hover:bg-slate-100']"
-                  >
-                    <div class="text-3xl mb-2 text-slate-400">🖼️</div>
-                    <p class="text-sm font-bold text-slate-600 mb-1">Tarik dan lepas satu gambar ke sini</p>
-                    <p class="text-xs text-slate-400 mb-3">atau</p>
-                    <label class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-black cursor-pointer hover:bg-slate-50 transition shadow-sm">
-                      Pilih File
-                      <input type="file" accept="image/*" class="hidden" @change="onFileSelectMain" />
-                    </label>
-                  </div>
-
-                  <div v-else class="relative group w-full sm:w-1/2 md:w-1/3 aspect-video bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-                    <img :src="mainImagePreview ? mainImagePreview : `${BASE_URL}/storage/${existingMainImage}`" class="w-full h-full object-cover" />
-                    <div v-if="mainImagePreview" class="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded shadow">BARU</div>
-                    
-                    <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button type="button" @click="removeMainImage" class="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-600 shadow-lg flex items-center gap-1">
-                        &times; Hapus
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div class="md:col-span-2">
-                  <label class="block text-xs font-bold text-slate-500 mb-1">Deskripsi Singkat (Card Preview) *</label>
-                  <textarea v-model="formData.description" required rows="2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#B48440]"></textarea>
-                </div>
-                <div class="md:col-span-2">
-                  <label class="block text-xs font-bold text-slate-500 mb-1">Overview Lengkap (Detail Page) *</label>
-                  <textarea v-model="formData.overview" required rows="4" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#B48440]"></textarea>
-                </div>
-                <div class="md:col-span-2 flex items-center gap-2">
-                  <input type="checkbox" v-model="formData.is_active" id="isActive" class="w-4 h-4 accent-[#B48440]" />
-                  <label for="isActive" class="text-sm font-bold text-slate-700 cursor-pointer">Publikasikan Produk Ini (Aktif)</label>
-                </div>
+            <div v-show="activeTab === 'Dasar'" class="space-y-4 animate-fade-in">
+              <div>
+                <label class="block text-[12px] font-black text-slate-800 mb-1">Nama Produk <span class="text-red-500">*</span></label>
+                <input v-model="form.name" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Contoh: Aplikasi Keuangan Pro" />
               </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                <div>
-                  <h3 class="font-black text-slate-800">Screenshots Produk</h3>
-                  <p class="text-[11px] text-slate-500 font-bold">Galeri gambar pendukung (Bisa pilih banyak gambar sekaligus).</p>
-                </div>
+              <div>
+                <label class="block text-[12px] font-black text-slate-800 mb-1">Deskripsi Singkat <span class="text-red-500">*</span></label>
+                <textarea v-model="form.description" required rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Deskripsi singkat produk..."></textarea>
               </div>
               
-              <div 
-                @dragover="onDragOverSS" 
-                @dragleave="onDragLeaveSS" 
-                @drop="onDropSS"
-                :class="['border-2 border-dashed rounded-xl p-8 text-center transition-colors mb-4 flex flex-col items-center justify-center', 
-                isDraggingSS ? 'border-[#B48440] bg-yellow-50/30' : 'border-slate-300 bg-slate-50 hover:bg-slate-100']"
-              >
-                <div class="text-3xl mb-2 text-slate-400">🖼️</div>
-                <p class="text-sm font-bold text-slate-600 mb-1">Tarik dan lepas gambar ke sini</p>
-                <p class="text-xs text-slate-400 mb-4">atau klik tombol di bawah untuk memilih file</p>
-                <label class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-black cursor-pointer hover:bg-slate-50 transition shadow-sm">
-                  Pilih Gambar
-                  <input type="file" multiple accept="image/*" class="hidden" @change="onFileSelectSS" />
-                </label>
-              </div>
-
-              <div v-if="existingScreenshots.length > 0 || newScreenshots.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <div class="p-4 rounded-lg bg-blue-50/50 border border-blue-100 space-y-4">
                 
-                <div v-for="(img, idx) in existingScreenshots" :key="'old-'+idx" class="relative group aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-                  <img :src="`${BASE_URL}/storage/${img.image_path}`" class="w-full h-full object-cover" />
-                  <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button type="button" @click="removeExistingScreenshot(idx)" class="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold hover:bg-red-600 shadow-lg">&times;</button>
+                <div v-if="form.type === 'Software'">
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member (Otomatis)</label>
+                  <input type="text" disabled value="Gold Member Khusus" class="w-full border border-slate-200 bg-slate-100 text-slate-500 rounded-lg px-3 py-2 text-sm font-bold" />
+                  <p class="text-[10px] text-slate-500 mt-1">Hanya pengguna Tier Gold yang dapat mengakses produk ini.</p>
+                </div>
+
+                <div v-if="form.type === 'Digital'">
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member <span class="text-red-500">*</span></label>
+                  <select v-model="form.access_tier" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
+                    <option value="free">Free Tier</option>
+                    <option value="silver">Silver Tier</option>
+                  </select>
+                  <p class="text-[10px] text-slate-500 mt-1">Limit jumlah unduhan diatur pada halaman dashboard customer.</p>
+                </div>
+
+                <div v-if="form.type === 'Fisik'" class="flex gap-4">
+                  <div class="flex-1">
+                    <label class="block text-[12px] font-black text-slate-800 mb-1">Quantity / Stok <span class="text-red-500">*</span></label>
+                    <input v-model="form.quantity" type="number" min="0" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white" placeholder="Jumlah stok..." />
+                  </div>
+                  <div class="flex-1">
+                    <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member (Otomatis)</label>
+                    <input type="text" disabled value="Semua Member (Tergantung Stok)" class="w-full border border-slate-200 bg-slate-100 text-slate-500 rounded-lg px-3 py-2 text-sm font-bold" />
                   </div>
                 </div>
 
-                <div v-for="(img, idx) in newScreenshots" :key="'new-'+idx" class="relative group aspect-video bg-slate-100 rounded-lg overflow-hidden border-2 border-emerald-400 border-dashed shadow-sm">
-                  <img :src="img.preview" class="w-full h-full object-cover" />
-                  <div class="absolute top-1 left-1 bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow">BARU</div>
-                  <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button type="button" @click="removeNewScreenshot(idx)" class="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold hover:bg-red-600 shadow-lg">&times;</button>
+              </div>
+
+              <div class="flex gap-4">
+                <div class="flex-1">
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Harga (Rp) <span class="text-red-500">*</span></label>
+                  <input v-model="form.price" type="number" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                </div>
+                <div class="w-32">
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Status Produk</label>
+                  <select v-model="form.is_active" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    <option :value="true">Aktif</option>
+                    <option :value="false">Draft</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[12px] font-black text-slate-800 mb-1">Overview Lengkap</label>
+                <textarea v-model="form.overview" rows="4" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Penjelasan detail tentang produk..."></textarea>
+              </div>
+            </div>
+
+            <div v-show="activeTab === 'Media'" class="space-y-6 animate-fade-in">
+              <div>
+                <label class="block text-[12px] font-black text-slate-800 mb-2">Gambar Utama / Cover</label>
+                <div v-if="!mainImagePreview && !existingMainImage" 
+                     @dragover.prevent="isDraggingMain = true" 
+                     @dragleave.prevent="isDraggingMain = false" 
+                     @drop.prevent="handleMainImageUpload"
+                     :class="['border-2 border-dashed rounded-xl p-8 text-center transition-colors', isDraggingMain ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400']">
+                  <input type="file" id="mainImage" accept="image/*" class="hidden" @change="handleMainImageUpload" />
+                  <label for="mainImage" class="cursor-pointer flex flex-col items-center gap-2">
+                    <span class="text-3xl">📸</span>
+                    <span class="text-sm font-bold text-blue-600 hover:text-blue-700">Klik untuk upload</span>
+                    <span class="text-xs text-slate-500">atau drag and drop file di sini (PNG, JPG)</span>
+                  </label>
+                </div>
+                <div v-else class="relative w-full max-w-sm rounded-xl overflow-hidden border border-slate-200 group">
+                  <img :src="mainImagePreview || existingMainImage!" class="w-full h-auto object-cover" />
+                  <button type="button" @click="removeMainImage" class="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity font-bold shadow-md">&times;</button>
+                </div>
+              </div>
+
+              <hr class="border-slate-100" />
+
+              <div>
+                <label class="block text-[12px] font-black text-slate-800 mb-2">Galeri / Screenshots Tambahan</label>
+                <div @dragover.prevent="isDraggingSS = true" @dragleave.prevent="isDraggingSS = false" @drop.prevent="handleScreenshotsUpload"
+                     :class="['border-2 border-dashed rounded-xl p-6 text-center transition-colors mb-4', isDraggingSS ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400']">
+                  <input type="file" id="screenshots" accept="image/*" multiple class="hidden" @change="handleScreenshotsUpload" />
+                  <label for="screenshots" class="cursor-pointer text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center justify-center gap-2">
+                    <span class="text-xl">🖼️</span> Tambah Screenshots
+                  </label>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div v-for="(ss, idx) in existingScreenshots" :key="ss.id" class="relative rounded-lg overflow-hidden border border-slate-200 group aspect-video">
+                    <img :src="`${BASE_URL}/storage/${ss.image_path}`" class="w-full h-full object-cover" />
+                    <button type="button" @click="removeExistingScreenshot(ss.id, idx)" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold">&times;</button>
+                  </div>
+                  <div v-for="(ss, idx) in newScreenshots" :key="'new-ss-'+idx" class="relative rounded-lg overflow-hidden border border-blue-200 group aspect-video">
+                    <img :src="ss.preview" class="w-full h-full object-cover opacity-80" />
+                    <div class="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none"></div>
+                    <button type="button" @click="removeNewScreenshot(idx)" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold">&times;</button>
                   </div>
                 </div>
-
               </div>
             </div>
 
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                <h3 class="font-black text-slate-800">Fitur Produk (Features)</h3>
-                <button type="button" @click="addFeature" class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">+ Tambah Fitur</button>
+            <div v-show="activeTab === 'Fitur'" class="space-y-4 animate-fade-in">
+              <div class="flex justify-between items-center mb-2">
+                <label class="text-[12px] font-black text-slate-800">Fitur Utama</label>
+                <button type="button" @click="addFeature" class="text-xs font-bold text-blue-600 hover:text-blue-700">+ Tambah Fitur</button>
               </div>
-              <div v-for="(feat, index) in formData.features" :key="'feat-'+index" class="flex gap-3 items-start mb-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+              <div v-if="form.features.length === 0" class="text-center p-6 border border-dashed border-slate-300 rounded-xl text-slate-400 text-sm">Belum ada fitur ditambahkan.</div>
+              <div v-for="(feature, idx) in form.features" :key="'feature-' + idx" class="flex gap-3 items-start bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div class="flex-1 space-y-2">
-                  <input v-model="feat.title" placeholder="Judul Fitur" required class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
-                  <input v-model="feat.description" placeholder="Deskripsi Singkat" required class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
+                  <input v-model="feature.title" placeholder="Nama Fitur (cth: Realtime Sync)" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <textarea v-model="feature.description" placeholder="Deskripsi fitur..." required rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"></textarea>
                 </div>
-                <button type="button" @click="removeFeature(index)" class="text-red-500 font-black px-2 py-1 bg-red-50 rounded border border-red-100">&times;</button>
+                <button type="button" @click="removeFeature(idx)" class="text-red-500 font-black px-2 py-1 bg-red-50 rounded-lg border border-red-100 hover:bg-red-500 hover:text-white transition">&times;</button>
               </div>
             </div>
 
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                <h3 class="font-black text-slate-800">Tanya Jawab (FAQ)</h3>
-                <button type="button" @click="addFaq" class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">+ Tambah FAQ</button>
+            <div v-show="activeTab === 'FAQ'" class="space-y-4 animate-fade-in">
+              <div class="flex justify-between items-center mb-2">
+                <label class="text-[12px] font-black text-slate-800">Tanya Jawab (FAQ)</label>
+                <button type="button" @click="addFaq" class="text-xs font-bold text-blue-600 hover:text-blue-700">+ Tambah FAQ</button>
               </div>
-              <div v-for="(faq, index) in formData.faqs" :key="'faq-'+index" class="flex gap-3 items-start mb-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+              <div v-if="form.faqs.length === 0" class="text-center p-6 border border-dashed border-slate-300 rounded-xl text-slate-400 text-sm">Belum ada FAQ ditambahkan.</div>
+              <div v-for="(faq, idx) in form.faqs" :key="'faq-' + idx" class="flex gap-3 items-start bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div class="flex-1 space-y-2">
-                  <input v-model="faq.question" placeholder="Pertanyaan (Q)" required class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm font-bold" />
-                  <textarea v-model="faq.answer" placeholder="Jawaban (A)" required rows="2" class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm"></textarea>
+                  <input v-model="faq.question" placeholder="Pertanyaan..." required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <textarea v-model="faq.answer" placeholder="Jawaban..." required rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"></textarea>
                 </div>
-                <button type="button" @click="removeFaq(index)" class="text-red-500 font-black px-2 py-1 bg-red-50 rounded border border-red-100">&times;</button>
+                <button type="button" @click="removeFaq(idx)" class="text-red-500 font-black px-2 py-1 bg-red-50 rounded-lg border border-red-100 hover:bg-red-500 hover:text-white transition">&times;</button>
               </div>
             </div>
 
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                <h3 class="font-black text-slate-800">Changelog / Update</h3>
-                <button type="button" @click="addChangelog" class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">+ Tambah Log</button>
+            <div v-show="activeTab === 'Pembaruan'" class="space-y-4 animate-fade-in">
+              <div class="flex justify-between items-center mb-2">
+                <label class="text-[12px] font-black text-slate-800">Riwayat Versi / Changelog</label>
+                <button type="button" @click="addChangelog" class="text-xs font-bold text-blue-600 hover:text-blue-700">+ Tambah Versi</button>
               </div>
-              <div v-for="(log, index) in formData.changelogs" :key="'log-'+index" class="flex gap-3 items-start mb-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+              <div v-if="form.changelogs.length === 0" class="text-center p-6 border border-dashed border-slate-300 rounded-xl text-slate-400 text-sm">Belum ada changelog ditambahkan.</div>
+              <div v-for="(log, idx) in form.changelogs" :key="'log-' + idx" class="flex gap-3 items-start bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div class="flex-1 grid grid-cols-2 gap-2">
-                  <input v-model="log.version" placeholder="Versi (cth: 1.0.1)" required class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
-                  <input v-model="log.release_date" type="date" required class="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
-                  <textarea v-model="log.changes" placeholder="Detail Perubahan" required rows="2" class="col-span-2 w-full border border-slate-200 rounded px-2 py-1.5 text-sm"></textarea>
+                  <input v-model="log.version" placeholder="Versi (cth: 1.0.1)" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <input v-model="log.release_date" type="date" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <textarea v-model="log.changes" placeholder="Detail Perubahan (Pisahkan dengan baris baru)" required rows="2" class="col-span-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"></textarea>
                 </div>
-                <button type="button" @click="removeChangelog(index)" class="text-red-500 font-black px-2 py-1 bg-red-50 rounded border border-red-100">&times;</button>
+                <button type="button" @click="removeChangelog(idx)" class="text-red-500 font-black px-2 py-1 bg-red-50 rounded-lg border border-red-100 hover:bg-red-500 hover:text-white transition">&times;</button>
               </div>
             </div>
-
           </form>
         </div>
 
-        <div class="px-6 py-4 border-t border-slate-200 bg-white flex justify-end gap-3">
-          <button @click="closeModal" type="button" class="px-4 py-2 text-sm font-bold text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200 transition">Batal</button>
-          <button type="submit" form="productForm" :disabled="submitting" class="px-6 py-2 text-sm font-black text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition disabled:opacity-50 flex items-center gap-2">
-            {{ submitting ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Buat Produk') }}
-          </button>
+        <div v-else class="flex-1 flex flex-col items-center justify-center p-10 text-slate-400 bg-slate-50">
+          <span class="text-6xl mb-4 opacity-50">📂</span>
+          <p class="font-bold text-sm">Menunggu Pilihan Jenis Produk...</p>
         </div>
 
+        <div class="px-6 py-4 border-t border-slate-200 bg-white flex justify-end gap-3 rounded-b-2xl">
+          <button @click="closeModal" type="button" class="px-4 py-2 text-sm font-bold text-slate-500 bg-slate-100 rounded-xl hover:bg-slate-200 transition">Batal</button>
+          <button type="submit" form="productForm" :disabled="submitting || !form.type" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+            {{ submitting ? 'Menyimpan...' : 'Simpan Produk' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+form::-webkit-scrollbar {
+  width: 6px;
+}
+form::-webkit-scrollbar-track {
+  background: transparent;
+}
+form::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
+}
+</style>

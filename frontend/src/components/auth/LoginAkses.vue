@@ -16,9 +16,14 @@ const handleLogin = async () => {
       email: email.value,
       password: password.value
     });
+    
     localStorage.setItem('access_token', response.data.access_token);
     localStorage.setItem('user_role', response.data.user.role);
     localStorage.setItem('user_name', response.data.user.name);
+    
+    // --- TAMBAHAN: Simpan Master Tier dari Manual Login ---
+    localStorage.setItem('user_tier_slug', response.data.user.tier_slug || 'free');
+    localStorage.setItem('user_tier_name', response.data.user.tier_name || 'Free Member');
 
     if (response.data.user.role === 'admin') {
       router.push('/admin/dashboard');
@@ -32,12 +37,22 @@ const handleLogin = async () => {
 
 onMounted(() => {
   const token = route.query.token as string;
-  if (token) {
-    // Jika ada token dari Google di URL, simpan dan langsung masuk
-    localStorage.setItem('access_token', token);
-    localStorage.setItem('user_role', 'customer');
+  const role = route.query.role as string;
+  const name = route.query.name as string;
+  
+  // --- TAMBAHAN: Tangkap tier dari Redirect Google ---
+  const tierSlug = route.query.tier_slug as string; 
+  const tierName = route.query.tier_name as string; 
 
-    // Bersihkan URL dan pindah ke dashboard
+  if (token) {
+    localStorage.setItem('access_token', token);
+    localStorage.setItem('user_role', role || 'customer');
+    localStorage.setItem('user_name', name ? decodeURIComponent(name) : 'Pelanggan');
+    
+    // --- TAMBAHAN: Simpan tier ke storage ---
+    localStorage.setItem('user_tier_slug', tierSlug || 'free'); 
+    localStorage.setItem('user_tier_name', tierName ? decodeURIComponent(tierName) : 'Free Member'); 
+
     router.replace('/dashboard/customer');
   } else if (route.query.error) {
     errorMessage.value = 'Gagal terhubung dengan akun Google Anda.';

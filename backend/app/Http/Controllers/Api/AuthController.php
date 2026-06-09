@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Tier;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -14,14 +15,22 @@ use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
-    // --- 1. REGISTER MANUAL (DIPERSINGKAT) ---
-    public function register(Request $request)
+    // --- 0. AMBIL MASTER TIER ---
+    public function getTiers()
+    {
+        $tiers = Tier::select('id', 'name', 'slug', 'description')->get();
+        return response()->json($tiers, 200);
+    }
+
+    // --- 1. REGISTER MANUAL ---
+    public function register(Request $request) 
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'phone' => 'required|string|max:20',
-            'password' => 'required|string|min:8|confirmed', 
+            'password' => 'required|string|min:8|confirmed',
+            'tier_id' => 'required|exists:tiers,id' // Validasi ke tabel master
         ]);
 
         $user = User::create([
@@ -30,106 +39,135 @@ class AuthController extends Controller
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'role' => 'customer',
+            'tier_id' => $request->tier_id,
         ]);
 
+        $user->load('tier'); // Ambil data tier yang berelasi
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Registrasi berhasil!',
-            'user' => $user,
             'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'tier_slug' => $user->tier->slug ?? 'free',
+                'tier_name' => $user->tier->name ?? 'Free Member'
+            ]
         ], 201);
     }
 
     // --- 2. LOGIN MANUAL ---
     public function login(Request $request)
     {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
+
         if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json(['message' => 'Email atau password salah'], 401);
         }
 
-        $user = User::where('email', $request->email)->firstOrFail();
+        // PERBAIKAN: Selalu muat relasi tier saat login
+        $user = User::with('tier')->where('email', $request->email)->firstOrFail();
+
+        // Jika user lama belum punya tier_id, berikan default 'free'
+        if (!$user->tier_id) {
+            $freeTier = Tier::where('slug', 'free')->first();
+            if($freeTier) {
+                $user->update(['tier_id' => $freeTier->id]);
+                $user->load('tier'); // Refresh relasi
+            }
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login berhasil!',
-            'user' => $user,
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                // PERBAIKAN: Gunakan ternary operator untuk menghindari error null
+                'tier_slug' => $user->tier ? $user->tier->slug : 'free',
+                'tier_name' => $user->tier ? $user->tier->name : 'Free Member',
+            ],
         ]);
     }
 
-    // --- 3. REDIRECT KE GOOGLE ---
+    // --- 3. LOGOUT ---
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+        return response()->json(['message' => 'Logout berhasil'], 200);
+    }
+
+    // --- 4. REDIRECT KE GOOGLE ---
     public function redirectToGoogle()
     {
         return Socialite::driver('google')
             ->stateless()
-            ->with(['prompt' => 'select_account']) // TAMBAHKAN BARIS INI
+            ->with(['prompt' => 'select_account']) 
             ->redirect();
     }
 
-    // --- 4. TANGKAP CALLBACK DARI GOOGLE ---
+    // --- 5. CALLBACK GOOGLE OAUTH ---
     public function handleGoogleCallback()
     {
-            // Ambil data user dari Google
+        try {
             $googleUser = Socialite::driver('google')->stateless()->user();
-            
-            // Cek apakah user sudah ada berdasarkan email atau google_id
-            $user = User::where('email', $googleUser->getEmail())->first();
+            $user = User::with('tier')->where('email', $googleUser->getEmail())->first();
+            $freeTier = Tier::where('slug', 'free')->first();
 
             if (!$user) {
-                // Jika belum ada, buat user baru (Register via Google)
                 $user = User::create([
                     'name' => $googleUser->getName(),
                     'email' => $googleUser->getEmail(),
                     'google_id' => $googleUser->getId(),
                     'role' => 'customer',
-                    'password' => null, // Tidak butuh password
+                    'tier_id' => $freeTier ? $freeTier->id : null,
+                    'password' => null,
                 ]);
             } else {
-                // Jika sudah ada, update google_id nya
-                $user->update(['google_id' => $googleUser->getId()]);
+                if (!$user->tier_id && $freeTier) {
+                    $user->tier_id = $freeTier->id;
+                }
+                $user->google_id = $googleUser->getId();
+                $user->save();
             }
 
-            // Buat token Sanctum
+            $user->load('tier');
             $token = $user->createToken('auth_token')->plainTextToken;
+            
+            $tierSlug = $user->tier->slug ?? 'free';
+            $tierName = urlencode($user->tier->name ?? 'Free Member');
+            $nameParam = urlencode($user->name);
 
-            // Arahkan ke halaman login Vue dengan membawa token
-            return redirect("http://localhost:5173/customer/login?token=" . $token);
+            return redirect("http://localhost:5173/customer/login?token={$token}&tier_slug={$tierSlug}&tier_name={$tierName}&role={$user->role}&name={$nameParam}");
+        } catch (\Exception $e) {
+            return redirect("http://localhost:5173/customer/login?error=oauth_failed");
+        }
     }
 
-    // --- 5. LOGOUT ---
-    public function logout(Request $request)
-    {
-        $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Logout berhasil!']);
-    }
-
-    // --- 6. KIRIM LINK RESET PASSWORD ---
     // --- 6. KIRIM LINK RESET PASSWORD ---
     public function sendResetLinkEmail(Request $request)
     {
         $request->validate(['email' => 'required|email|exists:users,email']);
-
-        $token = Str::random(64);
+        $token = Str::random(60);
 
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $request->email],
             ['token' => $token, 'created_at' => now()]
         );
 
-        // --- KODE YANG DIUBAH (DINAMIS) ---
-        // 1. Deteksi asal request (Origin) dari browser pengguna
-        $origin = $request->header('origin');
-        
-        // 2. Jika Origin terbaca, gunakan itu. Jika tidak, ambil dari .env
-        $frontendUrl = $origin ? $origin : env('FRONTEND_URL', 'http://localhost:5173');
-        
-        // 3. Buat link
-        $resetLink = $frontendUrl . '/customer/reset-password?token=' . $token . '&email=' . urlencode($request->email);
-        // ---------------------------------
-        
-        Mail::raw("Klik link berikut untuk mereset password Anda: \n\n" . $resetLink, function ($message) use ($request) {
+        Mail::send([], [], function ($message) use ($request) {
             $message->to($request->email)->subject('Reset Password Kerjapro Solutions');
         });
 
@@ -145,7 +183,6 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        // Cek token valid atau tidak
         $resetRequest = DB::table('password_reset_tokens')->where([
             'email' => $request->email,
             'token' => $request->token
@@ -155,12 +192,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Token tidak valid atau sudah kadaluarsa.'], 400);
         }
 
-        // Update password baru
         User::where('email', $request->email)->update([
             'password' => Hash::make($request->password)
         ]);
 
-        // Hapus token setelah dipakai
         DB::table('password_reset_tokens')->where(['email' => $request->email])->delete();
 
         return response()->json(['message' => 'Password berhasil diubah. Silakan login.']);
@@ -169,7 +204,7 @@ class AuthController extends Controller
     // [ADMIN] Lihat daftar customer
     public function adminCustomers()
     {
-        $customers = User::where('role', 'customer')->latest()->get();
+        $customers = User::with('tier')->where('role', 'customer')->latest()->get();
         return response()->json($customers, 200);
     }
 }

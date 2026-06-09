@@ -12,61 +12,53 @@ use Illuminate\Support\Facades\Storage;
 class ProductController extends Controller
 {
     public function index(Request $request) {
-        // PERBAIKAN: Tambahkan with(['reviews.user']) agar review terbaca di Portal
         $query = Product::where('is_active', true)->with(['reviews.user']);
         
-        if ($request->filled('category') && $request->category !== 'All Categories') $query->where('category', $request->category);
-        if ($request->filled('price_range')) {
-            switch ($request->price_range) {
-                case '0-100k': $query->where('price', '<=', 100000); break;
-                case '100k-500k': $query->whereBetween('price', [100000, 500000]); break;
-                case 'over-500k': $query->where('price', '>', 500000); break;
-            }
+        if ($request->filled('category') && $request->category !== 'All Categories') {
+            $query->where('category', $request->category);
         }
+        
         if ($request->filled('popularity')) {
             if ($request->popularity === 'Newest') $query->latest();
             elseif ($request->popularity === 'Best Seller') $query->withCount('reviews')->orderBy('reviews_count', 'desc');
         }
+        
         $products = $query->withAvg('reviews', 'rating')->get();
         return response()->json($products, 200);
     }
 
-    public function adminIndex(Request $request) {
-        $products = Product::latest()->get();
+    public function adminIndex()
+    {
+        $products = Product::with(['features', 'faqs', 'changelogs'])->latest()->get();
         return response()->json($products, 200);
-    }
-
-    public function show($slug) {
-        $product = Product::with(['features', 'screenshots', 'faqs', 'changelogs', 'reviews.user'])
-            ->withAvg('reviews', 'rating')
-            ->withCount('reviews')
-            ->where('slug', $slug)->first(); 
-        if (!$product) return response()->json(['message' => 'Produk tidak ditemukan'], 404);
-        return response()->json($product, 200);
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'required|string',
-            'overview' => 'required|string',
-            'price' => 'required|numeric',
-            'category' => 'required|string',
-            'is_active' => 'boolean',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048',
-            'features' => 'nullable|array',
-            'faqs' => 'nullable|array',
-            'changelogs' => 'nullable|array',
+            'product_type' => 'required|in:software,digital,physical',
         ]);
 
-        $validated['slug'] = Str::slug($validated['name']);
+        $product = new Product();
+        $product->name = $request->name;
+        $product->slug = Str::slug($request->name) . '-' . time();
+        $product->description = $request->description;
+        $product->overview = $request->overview;
+        $product->category = $request->category ?? 'Software';
+        $product->is_active = $request->is_active ?? true;
+        
+        $product->product_type = $request->product_type;
+        $product->stock = $request->product_type === 'physical' ? ($request->stock ?? 0) : 0;
+        // tier_prices dihapus karena sudah ada di tabel tiers
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
+            $path = $request->file('image')->store('products/images', 'public');
+            $product->image = $path;
         }
-        
-        $product = Product::create($validated);
+
+        $product->save();
 
         if (!empty($request->features)) $product->features()->createMany($request->features);
         if (!empty($request->faqs)) $product->faqs()->createMany($request->faqs);
@@ -79,39 +71,40 @@ class ProductController extends Controller
             }
         }
 
-        return response()->json(['message' => 'Produk berhasil ditambahkan', 'data' => $product], 201);
+        return response()->json(['message' => 'Produk berhasil dibuat', 'data' => $product], 201);
     }
 
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
-        
-        $validated = $request->validate([
+
+        $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'required|string',
-            'overview' => 'required|string',
-            'price' => 'required|numeric',
-            'category' => 'required|string',
-            'is_active' => 'boolean',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048',
-            'features' => 'nullable|array',
-            'faqs' => 'nullable|array',
-            'changelogs' => 'nullable|array',
+            'product_type' => 'required|in:software,digital,physical',
         ]);
 
-        $validated['slug'] = Str::slug($validated['name']);
+        $product->name = $request->name;
+        $product->description = $request->description;
+        $product->overview = $request->overview;
+        $product->category = $request->category;
+        $product->is_active = $request->is_active;
         
-        if ($request->has('remove_main_image') && $request->remove_main_image == 'true') {
+        $product->product_type = $request->product_type;
+        $product->stock = $request->product_type === 'physical' ? ($request->stock ?? 0) : 0;
+
+        if ($request->has('remove_image') && $request->remove_image == true) {
             if ($product->image) Storage::disk('public')->delete($product->image);
-            $validated['image'] = null; 
+            $product->image = null;
         }
 
         if ($request->hasFile('image')) {
             if ($product->image) Storage::disk('public')->delete($product->image);
-            $validated['image'] = $request->file('image')->store('products', 'public');
+            $path = $request->file('image')->store('products/images', 'public');
+            $product->image = $path;
         }
 
-        $product->update($validated);
+        $product->save();
 
         $product->features()->delete();
         $product->faqs()->delete();
