@@ -7,6 +7,7 @@ import api from '../../../api/axios';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:8000';
 
 const products = ref<any[]>([]);
+const masterTiers = ref<any[]>([]); // STATE BARU: Untuk menyimpan daftar tier dari API
 const loading = ref(true);
 const isModalOpen = ref(false);
 const isEditMode = ref(false);
@@ -68,19 +69,59 @@ const fetchProducts = async () => {
   }
 };
 
-onMounted(fetchProducts);
+// FUNGSI BARU: Mengambil data master tiers dari backend
+const fetchTiers = async () => {
+  try {
+    const response = await api.get('/tiers');
+    masterTiers.value = response.data;
+  } catch (error) {
+    console.error('Gagal memuat master tiers:', error);
+  }
+};
+
+// UPDATE: Memanggil fetchProducts dan fetchTiers saat komponen di-mount
+onMounted(() => {
+  fetchProducts();
+  fetchTiers();
+});
+
+// Fungsi pembantu untuk mencari dan mengisi harga otomatis
+const autoFillPrice = (tierSlug: string) => {
+  if (tierSlug === 'all' || !tierSlug) {
+    form.value.price = 0;
+    return;
+  }
+  
+  // Cari harga berdasarkan slug tier di data masterTiers
+  const selectedTier = masterTiers.value.find(t => t.slug === tierSlug);
+  if (selectedTier) {
+    form.value.price = Number(selectedTier.price);
+  }
+};
 
 const handleTypeChange = () => {
+  // Reset nilai default saat ganti tipe produk
+  form.value.access_tier = '';
+  form.value.price = 0;
+  form.value.quantity = 0;
+  
   if (form.value.type === 'Software') {
+    // Software dipaksa Gold, dan otomatis ambil harga Gold
     form.value.access_tier = 'gold';
-    form.value.quantity = 0;
+    autoFillPrice('gold'); 
   } else if (form.value.type === 'Digital') {
-    form.value.access_tier = 'free';
-    form.value.quantity = 0;
+    // Digital dikosongkan agar admin memilih manual
+    form.value.access_tier = '';
   } else if (form.value.type === 'Fisik') {
-    form.value.access_tier = 'all';
-    form.value.quantity = 1;
+    // Fisik tidak butuh tier, diset 'all' (Bisa dibeli semua)
+    form.value.access_tier = 'all'; 
+    form.value.quantity = 1; 
   }
+};
+
+// Fungsi yang dipanggil saat dropdown Akses Member Minimal diubah
+const handleTierChange = () => {
+  autoFillPrice(form.value.access_tier);
 };
 
 const openModal = () => {
@@ -147,7 +188,6 @@ const handleScreenshotsUpload = (event: any) => {
   });
 };
 
-// Mengubah parameter 'index' menjadi 'idx' agar lebih aman
 const removeNewScreenshot = (idx: number) => {
   newScreenshots.value.splice(idx, 1);
   screenshotFiles.value.splice(idx, 1);
@@ -162,27 +202,38 @@ const submitProduct = async () => {
   submitting.value = true;
   const formData = new FormData();
   
-  // Perbaiki bagian ini dengan TypeScript type assertion (as keyof FormState)
+  // 1. Mapping tipe produk
+  let backendProductType = 'software';
+  if (form.value.type === 'Software') backendProductType = 'software';
+  else if (form.value.type === 'Digital') backendProductType = 'digital';
+  else if (form.value.type === 'Fisik') backendProductType = 'physical';
+
+  formData.append('product_type', backendProductType);
+  formData.append('category', form.value.type);
+
+  // 2. Looping isi form
   (Object.keys(form.value) as Array<keyof FormState>).forEach(key => {
     if (['features', 'faqs', 'changelogs'].includes(key as string)) {
-      // Pastikan TypeScript tahu ini adalah array sebelum menggunakan forEach
       const arrayValue = form.value[key];
       if (Array.isArray(arrayValue)) {
         arrayValue.forEach((item: any, i: number) => {
           Object.keys(item).forEach(subKey => formData.append(`${key}[${i}][${subKey}]`, item[subKey]));
         });
       }
-    } else {
-      // Pastikan nilainya string/blob/null sebelum di-append
+    } else if (key !== 'type') { 
       const value = form.value[key];
-      if (value !== null && value !== undefined) {
-        formData.append(key as string, value.toString());
+      if (value !== null && value !== undefined && value !== '') {
+        // Tweak: Ubah nama 'quantity' menjadi 'stock' untuk Laravel
+        let formKey = key === 'quantity' ? 'stock' : key;
+        
+        // Tweak: Ubah boolean menjadi 1 atau 0
+        let formValue = value;
+        if (typeof value === 'boolean') formValue = value ? '1' : '0';
+        
+        formData.append(formKey, formValue.toString());
       }
     }
   });
-
-  // Pastikan property 'category' ditangkap backend (berasal dari form.type)
-  formData.append('category', form.value.type);
 
   if (imageFile.value) formData.append('image', imageFile.value);
   if (removeMainImageFlag.value) formData.append('remove_image', '1');
@@ -203,14 +254,21 @@ const submitProduct = async () => {
     }
     closeModal();
     fetchProducts();
-  } catch (error) {
-    console.error('Gagal menyimpan:', error);
+    alert('Produk berhasil disimpan!');
+  } catch (error: any) {
+    // Menangkap pesan error spesifik dari Laravel agar mudah dicari tahu
+    if (error.response && error.response.status === 422) {
+      const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
+      alert(`Gagal Menyimpan! Periksa inputan Anda:\n${errorMessages}`);
+    } else {
+      console.error('Gagal menyimpan:', error);
+      alert('Terjadi kesalahan server.');
+    }
   } finally {
     submitting.value = false;
   }
 };
 
-// Array Helpers (Parameter diubah menjadi idx)
 const addFeature = () => form.value.features.push({ title: '', description: '' });
 const removeFeature = (idx: number) => form.value.features.splice(idx, 1);
 
@@ -266,10 +324,16 @@ const removeChangelog = (idx: number) => form.value.changelogs.splice(idx, 1);
                 <div class="text-[11px] text-slate-500">Rp {{ product.price.toLocaleString('id-ID') }}</div>
               </td>
               <td class="p-4">
-                <span v-if="product.access_tier === 'gold'" class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-md text-[10px] font-black uppercase">Gold</span>
-                <span v-else-if="product.access_tier === 'silver'" class="px-2 py-1 bg-slate-200 text-slate-700 rounded-md text-[10px] font-black uppercase">Silver</span>
-                <span v-else-if="product.access_tier === 'free'" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-[10px] font-black uppercase">Free</span>
-                <span v-else class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-black uppercase">Semua (All)</span>
+                <span class="px-2 py-1 rounded-md text-[10px] font-black uppercase"
+                      :class="{
+                        'bg-yellow-100 text-yellow-700': product.access_tier === 'gold',
+                        'bg-slate-200 text-slate-700': product.access_tier === 'silver',
+                        'bg-blue-100 text-blue-700': product.access_tier === 'free',
+                        'bg-emerald-100 text-emerald-700': !product.access_tier || product.access_tier === 'all',
+                        'bg-indigo-100 text-indigo-700': !['gold', 'silver', 'free', 'all', ''].includes(product.access_tier)
+                      }">
+                  {{ product.access_tier || 'ALL' }}
+                </span>
               </td>
               <td class="p-4 text-center">
                 <span :class="product.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" class="px-3 py-1 rounded-full text-xs font-bold">
@@ -334,37 +398,38 @@ const removeChangelog = (idx: number) => form.value.changelogs.splice(idx, 1);
               <div class="p-4 rounded-lg bg-blue-50/50 border border-blue-100 space-y-4">
                 
                 <div v-if="form.type === 'Software'">
-                  <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member (Otomatis)</label>
-                  <input type="text" disabled value="Gold Member Khusus" class="w-full border border-slate-200 bg-slate-100 text-slate-500 rounded-lg px-3 py-2 text-sm font-bold" />
-                  <p class="text-[10px] text-slate-500 mt-1">Hanya pengguna Tier Gold yang dapat mengakses produk ini.</p>
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member (Otomatis) <span class="text-red-500">*</span></label>
+                  <div class="w-full border border-slate-200 bg-amber-50 text-amber-700 rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Eksklusif Gold Member
+                  </div>
+                  <p class="text-[10px] text-slate-500 mt-1">Hanya pengguna Tier Gold yang dapat mengakses produk Software ini.</p>
                 </div>
 
                 <div v-if="form.type === 'Digital'">
-                  <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member <span class="text-red-500">*</span></label>
-                  <select v-model="form.access_tier" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
-                    <option value="free">Free Tier</option>
-                    <option value="silver">Silver Tier</option>
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member Minimal <span class="text-red-500">*</span></label>
+                  <select v-model="form.access_tier" @change="handleTierChange" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white">
+                    <option value="" disabled>-- Pilih Level Akses Minimal --</option>
+                    <option v-for="tier in masterTiers" :key="tier.slug" :value="tier.slug">
+                      {{ tier.name }}
+                    </option>
+                    <option value="all">Bisa Diakses Semua (Termasuk Non-Member)</option>
                   </select>
-                  <p class="text-[10px] text-slate-500 mt-1">Limit jumlah unduhan diatur pada halaman dashboard customer.</p>
+                  <p class="text-[10px] text-slate-500 mt-1">Pilih Master Tier terendah yang diperbolehkan mengakses produk ini. Tier di atasnya akan otomatis mendapatkan akses.</p>
                 </div>
 
-                <div v-if="form.type === 'Fisik'" class="flex gap-4">
-                  <div class="flex-1">
-                    <label class="block text-[12px] font-black text-slate-800 mb-1">Quantity / Stok <span class="text-red-500">*</span></label>
-                    <input v-model="form.quantity" type="number" min="0" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white" placeholder="Jumlah stok..." />
-                  </div>
-                  <div class="flex-1">
-                    <label class="block text-[12px] font-black text-slate-800 mb-1">Akses Member (Otomatis)</label>
-                    <input type="text" disabled value="Semua Member (Tergantung Stok)" class="w-full border border-slate-200 bg-slate-100 text-slate-500 rounded-lg px-3 py-2 text-sm font-bold" />
-                  </div>
+                <div v-if="form.type === 'Fisik'">
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Quantity / Stok Tersedia <span class="text-red-500">*</span></label>
+                  <input v-model="form.quantity" type="number" min="0" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white" placeholder="Masukkan jumlah stok..." />
+                  <p class="text-[10px] text-slate-500 mt-1">Produk fisik dapat dibeli oleh siapa saja tanpa syarat keanggotaan (selama stok tersedia).</p>
                 </div>
 
               </div>
 
-              <div class="flex gap-4">
+              <div class="flex gap-4 mt-4">
                 <div class="flex-1">
-                  <label class="block text-[12px] font-black text-slate-800 mb-1">Harga (Rp) <span class="text-red-500">*</span></label>
-                  <input v-model="form.price" type="number" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                  <label class="block text-[12px] font-black text-slate-800 mb-1">Harga Produk (Rp) <span class="text-red-500">*</span></label>
+                  <input v-model="form.price" type="number" required min="0" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="0" />
                 </div>
                 <div class="w-32">
                   <label class="block text-[12px] font-black text-slate-800 mb-1">Status Produk</label>

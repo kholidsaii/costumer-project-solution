@@ -13,25 +13,32 @@ class TierSeeder extends Seeder
             [
                 'name' => 'Free Member', 
                 'slug' => 'free', 
-                'description' => 'Akses 20 produk digital',
-                'price' => 0 // Harga gratis
+                'description' => 'Akses dasar ke katalog digital. Cocok untuk pemula.',
+                'price' => 0 
             ],
             [
                 'name' => 'Silver Member', 
                 'slug' => 'silver', 
-                'description' => 'Akses 1000 produk digital',
+                'description' => 'Akses ke 1000+ produk digital premium tanpa watermark.',
                 'price' => 2000000 
             ],
             [
                 'name' => 'Gold Member', 
                 'slug' => 'gold', 
-                'description' => 'Akses penuh ke semua ekosistem',
-                'price' => 5000000 // Contoh harga Rp 450.000
+                'description' => 'Akses VIP ke semua ekosistem, software khusus, dan support prioritas.',
+                'price' => 5000000
             ],
         ];
 
         foreach ($tiers as $tier) {
-            Tier::updateOrCreate(['slug' => $tier['slug']], $tier);
+            Tier::updateOrCreate(
+                ['slug' => $tier['slug']], // Cari berdasarkan slug
+                [
+                    'name' => $tier['name'],
+                    'description' => $tier['description'],
+                    'price' => $tier['price']
+                ] // Update/Create atribut lainnya
+            );
         }
     }
 }

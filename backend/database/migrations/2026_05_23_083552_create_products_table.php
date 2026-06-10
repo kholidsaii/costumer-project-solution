@@ -16,13 +16,15 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique(); // Untuk URL ramah SEO
             $table->text('description'); // Deskripsi singkat
-            $table->longText('overview'); // Deskripsi lengkap untuk tab Overview
-            $table->decimal('price', 15, 2);
-            $table->string('category'); // Menampung nilai Jenis Produk (Software, Digital, Fisik)
+            $table->longText('overview')->nullable(); // Deskripsi lengkap untuk tab Overview (dibuat nullable untuk berjaga-jaga)
             
-            // --- PENAMBAHAN BARU ---
+            $table->string('category'); // Menampung nilai label (Software, Produk Digital, Produk Fisik)
+            
+            // --- PENYESUAIAN BARU ---
+            $table->string('product_type'); // Menampung logika backend: software, digital, physical
+            $table->decimal('price', 15, 2)->default(0); // Memastikan ada default value
             $table->string('access_tier')->default('all'); // Akses: gold, silver, free, all
-            $table->integer('quantity')->default(0); // Untuk stok produk fisik
+            $table->integer('stock')->default(0); // Mengubah 'quantity' menjadi 'stock' agar sesuai dengan Controller
             // -----------------------
 
             $table->boolean('is_active')->default(true);

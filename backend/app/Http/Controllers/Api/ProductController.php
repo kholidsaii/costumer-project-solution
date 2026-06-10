@@ -33,6 +33,23 @@ class ProductController extends Controller
         return response()->json($products, 200);
     }
 
+    public function show($slug)
+    {
+        // Mencari produk berdasarkan slug beserta semua relasi datanya
+        $product = Product::where('slug', $slug)
+            ->with(['features', 'faqs', 'changelogs', 'screenshots', 'reviews.user'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
+            ->first();
+
+        // Jika produk tidak ditemukan, kembalikan error 404
+        if (!$product) {
+            return response()->json(['message' => 'Produk tidak ditemukan'], 404);
+        }
+
+        return response()->json($product, 200);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -47,11 +64,16 @@ class ProductController extends Controller
         $product->description = $request->description;
         $product->overview = $request->overview;
         $product->category = $request->category ?? 'Software';
-        $product->is_active = $request->is_active ?? true;
+        
+        // Membaca boolean dari angka 1/0
+        $product->is_active = $request->is_active == '1' ? true : false; 
         
         $product->product_type = $request->product_type;
         $product->stock = $request->product_type === 'physical' ? ($request->stock ?? 0) : 0;
-        // tier_prices dihapus karena sudah ada di tabel tiers
+        
+        // PENTING: Menyimpan Harga & Tier Akses
+        $product->price = $request->price ?? 0;
+        $product->access_tier = $request->access_tier ?? 'all';
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products/images', 'public');

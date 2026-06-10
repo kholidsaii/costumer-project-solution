@@ -7,7 +7,6 @@ const router = useRouter();
 const products = ref<any[]>([]);
 const loading = ref(true);
 
-// Tambahkan BASE URL Laravel
 const BASE_URL = 'http://localhost:8000';
 
 // State Filter
@@ -16,9 +15,10 @@ const selectedPrice = ref('All Prices');
 const selectedPopularity = ref('Newest');
 const searchQuery = ref('');
 
-// Opsi Kategori untuk Tab Atas
-const topCategories = ['All', 'Software', 'Template', 'Integration', 'Service'];
+// PERBAIKAN: Menyesuaikan opsi kategori dengan inputan Admin
+const topCategories = ['All', 'Software', 'Digital', 'Fisik'];
 const activeTopCategory = ref('All');
+const sidebarCategories = ['All Categories', 'Software', 'Digital', 'Fisik'];
 
 const fetchProducts = async () => {
   loading.value = true;
@@ -30,9 +30,8 @@ const fetchProducts = async () => {
 
     const categoryParam = activeTopCategory.value !== 'All' ? activeTopCategory.value : (selectedCategory.value !== 'All Categories' ? selectedCategory.value : '');
 
-    // PERBAIKAN: Tambahkan BASE_URL di sini
     const response = await axios.get(`${BASE_URL}/api/products`, {
-      params: { category: categoryParam, price_range: priceParam, popularity: selectedPopularity.value }
+      params: { category: categoryParam, price_range: priceParam, popularity: selectedPopularity.value, search: searchQuery.value }
     });
     
     products.value = Array.isArray(response.data) ? response.data : (response.data.data || []);
@@ -44,7 +43,7 @@ const fetchProducts = async () => {
   }
 };
 
-watch([selectedCategory, selectedPrice, selectedPopularity, activeTopCategory], fetchProducts);
+watch([selectedCategory, selectedPrice, selectedPopularity, activeTopCategory, searchQuery], fetchProducts);
 onMounted(fetchProducts);
 
 const formatPrice = (price: any) => {
@@ -55,16 +54,13 @@ const formatPrice = (price: any) => {
 </script>
 
 <template>
-  <!-- PERBAIKAN: Mengubah max-w-7xl menjadi max-w-5xl agar persis sejajar dengan Header Banner -->
   <div class="max-w-5xl mx-auto px-4 md:px-0 py-8 flex flex-col md:flex-row gap-6">
     
-    <!-- SIDEBAR KIRI -->
     <aside class="w-full md:w-64 flex-none bg-[#42B8E6] text-white rounded-xl overflow-hidden shadow-sm h-fit pb-6">
       <div class="bg-white text-[#42B8E6] p-4 m-2 rounded-lg font-black flex items-center gap-2 shadow-sm">
         <span class="text-xl">🏠</span> ALL PRODUCTS
       </div>
       
-      <!-- Package Links -->
       <div class="px-6 py-4 space-y-4 border-b border-white/20">
         <button class="flex items-center gap-3 w-full text-left font-bold text-sm hover:opacity-80"><span class="text-xl opacity-70">⊞</span> Personal Package</button>
         <button class="flex items-center gap-3 w-full text-left font-bold text-sm hover:opacity-80"><span class="text-xl opacity-70">⊞</span> Education Package</button>
@@ -76,17 +72,15 @@ const formatPrice = (price: any) => {
       <div class="px-6 mt-6">
         <h3 class="font-bold text-sm mb-4 opacity-90">Product Filter</h3>
         
-        <!-- Categories -->
         <div class="mb-6">
           <h4 class="font-bold text-sm mb-2">Categories</h4>
           <div class="space-y-2">
-            <label v-for="cat in ['All Categories', 'Software', 'Templates', 'Integrations', 'Services']" :key="cat" class="flex items-center gap-2 text-sm cursor-pointer">
+            <label v-for="cat in sidebarCategories" :key="cat" class="flex items-center gap-2 text-sm cursor-pointer">
               <input type="radio" :value="cat" v-model="selectedCategory" class="accent-white" /> <span class="opacity-90">{{ cat }}</span>
             </label>
           </div>
         </div>
 
-        <!-- Price -->
         <div class="mb-6">
           <h4 class="font-bold text-sm mb-2">Price</h4>
           <div class="space-y-2">
@@ -96,7 +90,6 @@ const formatPrice = (price: any) => {
           </div>
         </div>
 
-        <!-- Popularity -->
         <div>
           <h4 class="font-bold text-sm mb-2">Popularity</h4>
           <div class="space-y-2">
@@ -108,10 +101,8 @@ const formatPrice = (price: any) => {
       </div>
     </aside>
 
-    <!-- KONTEN UTAMA -->
     <main class="flex-1 min-w-0">
       
-      <!-- Header Konten -->
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h1 class="text-2xl font-black text-slate-800">All Products</h1>
         <div class="flex gap-2 w-full md:w-auto">
@@ -127,7 +118,6 @@ const formatPrice = (price: any) => {
         </div>
       </div>
 
-      <!-- Tab Kategori & Layout Toggle -->
       <div class="flex gap-2 mb-6 overflow-x-auto pb-2 items-center bg-slate-100/50 p-1 rounded-xl">
         <div class="flex flex-1">
           <button v-for="cat in topCategories" :key="cat" @click="activeTopCategory = cat" :class="['px-5 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap', activeTopCategory === cat ? 'bg-[#51C4ED] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700']">
@@ -137,7 +127,6 @@ const formatPrice = (price: any) => {
         <button class="p-2 border border-slate-200 rounded-lg bg-white text-slate-500 ml-2">𝌆</button>
       </div>
 
-      <!-- Grid Produk -->
       <div v-if="loading" class="text-center py-20 text-slate-400 font-bold">Memuat data produk...</div>
       <div v-else-if="products.length === 0" class="text-center py-20 text-slate-400 font-bold">Produk tidak ditemukan. Pastikan Anda telah menambahkannya di Dashboard Admin.</div>
       
@@ -146,15 +135,17 @@ const formatPrice = (price: any) => {
           <div class="h-32 bg-slate-50 relative p-4 flex items-center justify-center border-b border-slate-100">
             <button class="absolute top-2 right-2 text-slate-400 hover:text-yellow-400 transition-colors bg-white rounded-full p-1.5 shadow-sm border border-slate-100 z-10">⭐</button>
             
-            <img v-if="product.image" :src="`http://localhost:8000/storage/${product.image}`" :alt="product.name" class="w-full h-full object-cover" />
-            
+            <img v-if="product.image" :src="`${BASE_URL}/storage/${product.image}`" :alt="product.name" class="w-full h-full object-cover" />
             <div v-else class="w-full h-full bg-blue-100/50 rounded-lg flex items-center justify-center text-blue-300 font-black text-xl uppercase tracking-widest text-center px-2">
               {{ product.category || 'Product' }}
+            </div>
+            
+            <div class="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-black text-slate-600 shadow-sm border border-slate-200 uppercase">
+              {{ product.category }}
             </div>
           </div>
           
           <div class="p-4 flex flex-col flex-1 text-center">
-            <!-- PERBAIKAN: Mencegah hilangnya text jika database kosong -->
             <h3 class="font-black text-slate-800 text-[14px] mb-2 group-hover:text-[#42B8E6] transition-colors line-clamp-1" :title="product.name">
               {{ product.name || 'Produk Tanpa Nama' }}
             </h3>
@@ -171,7 +162,6 @@ const formatPrice = (price: any) => {
         </div>
       </div>
 
-      <!-- Footer Trust Badges -->
       <div class="border-t border-slate-200 pt-6 mt-8 mb-8">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div><div class="text-2xl mb-1">✔️</div><h5 class="text-xs font-black text-slate-800 mb-1">High-Quality</h5></div>
