@@ -20,16 +20,33 @@ const fetchOrders = async () => {
 
 onMounted(fetchOrders);
 
-const updateStatus = async (id: number, action: 'approve' | 'reject') => {
-  if (!confirm(`Apakah Anda yakin ingin ${action} order ini?`)) return;
+const updateStatus = async (order: any, action: 'approve' | 'reject') => {
+  let requestData = {};
+  
+  if (action === 'approve') {
+    if (!confirm('Apakah Anda yakin ingin menyetujui pesanan ini?')) return;
+    
+    // Minta link akses jika ini adalah pesanan software
+    if (order.product?.product_type === 'software') {
+      const link = prompt('WAJIB: Masukkan Link Akses/Lisensi Software (Google Drive/Repo/Dll) untuk diberikan ke Pelanggan:');
+      if (link === null) return; // Batal jika admin klik cancel
+      if (link === '') return alert('Proses dibatalkan: Link akses software tidak boleh kosong!');
+      requestData = { software_link: link };
+    }
+  } else {
+    if (!confirm('Apakah Anda yakin menolak pesanan ini? Jika ini pesanan Fisik, stok akan otomatis dikembalikan.')) return;
+  }
+
   const token = localStorage.getItem('access_token');
   try {
-    await axios.post(`${BASE_URL}/api/admin/orders/${id}/${action}`, {}, {
+    await axios.post(`${BASE_URL}/api/admin/orders/${order.id}/${action}`, requestData, {
       headers: { Authorization: `Bearer ${token}` }
     });
     alert(`Order berhasil di-${action}!`);
-    fetchOrders();
-  } catch (error) { alert('Gagal memproses aksi.'); }
+    fetchOrders(); // Refresh data
+  } catch (error) { 
+    alert('Gagal memproses aksi. Cek koneksi atau console log.'); 
+  }
 };
 
 const formatPrice = (price: any) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Number(price));
@@ -56,12 +73,23 @@ const formatPrice = (price: any) => new Intl.NumberFormat('id-ID', { style: 'cur
           </tr>
         </thead>
         <tbody class="text-sm">
-          <tr v-if="loading"><td colspan="6" class="p-8 text-center text-slate-400 font-bold">Memuat...</td></tr>
-          <tr v-else-if="orders.length === 0"><td colspan="6" class="p-8 text-center text-slate-400 font-bold">Kosong</td></tr>
-          <tr v-else v-for="order in orders" :key="order.id" class="border-b border-slate-100 hover:bg-slate-50">
+          <tr v-for="order in orders" :key="order.id" class="border-b border-slate-100 hover:bg-slate-50">
             <td class="p-4 font-bold text-slate-600">{{ order.order_number }}</td>
             <td class="p-4 font-black text-slate-800">{{ order.user?.name }}</td>
-            <td class="p-4 text-slate-600">{{ order.product?.name }}</td>
+            <td class="p-4">
+              <p class="text-slate-600">{{ order.product?.name }}</p>
+              
+              <div v-if="order.payment_proof" class="mt-2">
+                <a :href="`${BASE_URL}/storage/${order.payment_proof}`" target="_blank" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold hover:underline">
+                  Lihat Bukti TF ({{ order.payment_method }})
+                </a>
+              </div>
+              <div v-if="order.shipping_address" class="mt-2 text-[10px] text-slate-500 bg-slate-100 p-2 rounded">
+                <strong>Pengiriman:</strong> {{ order.courier }} (Rp {{ order.shipping_cost }})<br/>
+                {{ order.shipping_address }}
+              </div>
+
+            </td>
             <td class="p-4 font-black text-indigo-600">{{ formatPrice(order.total_amount) }}</td>
             <td class="p-4">
               <span :class="['px-2 py-1 rounded text-[10px] font-black uppercase', order.status === 'pending' ? 'bg-amber-100 text-amber-700' : (order.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700')]">

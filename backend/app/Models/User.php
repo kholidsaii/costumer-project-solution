@@ -19,7 +19,8 @@ class User extends Authenticatable
         'role',
         'phone',
         'google_id',
-        'tier_id' // Sudah Benar
+        'tier_id',
+        'digital_downloads_count' 
     ];
 
     public function orders() {

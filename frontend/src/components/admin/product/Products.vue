@@ -26,6 +26,8 @@ const isDraggingSS = ref(false);
 const existingScreenshots = ref<any[]>([]); 
 const deletedScreenshots = ref<number[]>([]); 
 const newScreenshots = ref<{ file: File, preview: string }[]>([]); 
+const digitalFile = ref<File | null>(null);
+const handleDigitalUpload = (e: any) => { digitalFile.value = e.target.files[0]; };
 
 // 1. Tambahkan Interface (KTP) ini agar TypeScript tahu isi form-nya
 interface FormState {
@@ -240,6 +242,7 @@ const submitProduct = async () => {
 
   screenshotFiles.value.forEach(file => formData.append('screenshots[]', file));
   deletedScreenshots.value.forEach(id => formData.append('deleted_screenshots[]', id.toString()));
+  if (digitalFile.value) formData.append('digital_file', digitalFile.value);
 
   try {
     if (isEditMode.value && form.value.id) {
@@ -416,6 +419,11 @@ const removeChangelog = (idx: number) => form.value.changelogs.splice(idx, 1);
                     <option value="all">Bisa Diakses Semua (Termasuk Non-Member)</option>
                   </select>
                   <p class="text-[10px] text-slate-500 mt-1">Pilih Master Tier terendah yang diperbolehkan mengakses produk ini. Tier di atasnya akan otomatis mendapatkan akses.</p>
+                  <div class="mt-4 border-t border-blue-100 pt-4">
+                    <label class="block text-[12px] font-black text-slate-800 mb-1">Upload File Digital Asli (ZIP, PDF, DOCX) <span class="text-red-500">*</span></label>
+                    <input type="file" @change="handleDigitalUpload" class="w-full text-xs file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 border border-slate-200 rounded-lg bg-white p-1">
+                    <p class="text-[10px] text-slate-500 mt-1">File ini yang akan ter-download otomatis oleh customer saat limit mereka mencukupi.</p>
+                  </div>
                 </div>
 
                 <div v-if="form.type === 'Fisik'">

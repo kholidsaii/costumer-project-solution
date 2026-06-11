@@ -18,6 +18,7 @@ import CustomerDashboard from '../components/dashboardcustomer/Dashboard.vue';
 import CustomerProductPortal from '../components/dashboardcustomer/ProductPortal.vue';
 import CustomerOrders from '../components/dashboardcustomer/Orders.vue';
 import CustomerBilling from '../components/dashboardcustomer/Billing.vue';
+import CustomerMember from '../components/dashboardcustomer/Member.vue';
 
 // Admin Dashboard Components
 import AdminDashboard from '../components/admin/Dashboard.vue';
@@ -59,6 +60,7 @@ const routes = [
     children: [
       { path: '', component: CustomerDashboard },
       { path: 'products', component: CustomerProductPortal },
+      { path: 'member', component: CustomerMember },
       { path: 'orders', component: CustomerOrders },
       { path: 'billing', component: CustomerBilling },
       { path: 'support', component: { template: '<div class="p-8 text-center text-slate-400 font-bold">Halaman Tiket Support sedang dalam pengembangan.</div>' } },

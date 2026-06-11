@@ -30,8 +30,11 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'phone' => 'required|string|max:20',
             'password' => 'required|string|min:8|confirmed',
-            'tier_id' => 'required|exists:tiers,id' // Validasi ke tabel master
+            // HAPUS validasi 'tier_id' di sini
         ]);
+
+        // Cari master tier 'free' dari database
+        $freeTier = Tier::where('slug', 'free')->first();
 
         $user = User::create([
             'name' => $request->name,
@@ -39,7 +42,8 @@ class AuthController extends Controller
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'role' => 'customer',
-            'tier_id' => $request->tier_id,
+            // Assign otomatis ke tier free (jika ada di DB), jika tidak null
+            'tier_id' => $freeTier ? $freeTier->id : null, 
         ]);
 
         $user->load('tier'); // Ambil data tier yang berelasi

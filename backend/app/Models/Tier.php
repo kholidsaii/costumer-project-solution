@@ -9,7 +9,7 @@ class Tier extends Model
     use HasFactory;
     
     // PERBAIKAN: Tambahkan 'price' ke fillable
-    protected $fillable = ['name', 'slug', 'description', 'price'];
+    protected $fillable = ['name', 'slug', 'description', 'price', 'digital_limit', 'software_access'];
 
     public function users()
     {

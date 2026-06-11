@@ -28,17 +28,44 @@ Route::get('/tiers', [TierController::class, 'index']);
 // ==========================================
 Route::middleware('auth:sanctum')->group(function () {
     
-    // FIX 404 LOGOUT: Tambahkan route logout di sini karena butuh auth
+    // Route logout
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // --- PERBAIKAN: Endpoint untuk Profil User (Dipakai oleh DashboardCustomerLayout.vue) ---
+    Route::get('/user', function (Request $request) {
+        $user = $request->user()->load('tier');
+        $data = $user->toArray();
+        // Menambahkan alias agar frontend Member.vue dan Layout bisa membaca datanya
+        $data['tier_slug'] = $user->tier->slug ?? 'free';
+        $data['tier_name'] = $user->tier->name ?? 'Free Member';
+        return response()->json($data);
+    });
 
     // ------------------------------------------
     // 3. CUSTOMER ROUTES
     // ------------------------------------------
     Route::middleware(CheckRole::class.':customer')->prefix('customer')->group(function () {
+        
+        // --- PERBAIKAN: Endpoint untuk Profil User (Dipakai oleh Member.vue) ---
+        Route::get('/me', function (Request $request) {
+            $user = $request->user()->load('tier');
+            $data = $user->toArray();
+            $data['tier_slug'] = $user->tier->slug ?? 'free';
+            $data['tier_name'] = $user->tier->name ?? 'Free Member';
+            return response()->json($data);
+        });
+
+        // Manajemen Order & Billing
         Route::post('/orders', [OrderController::class, 'store']);
         Route::get('/orders', [OrderController::class, 'index']);
         Route::post('/orders/{id}/pay', [OrderController::class, 'pay']);
         Route::get('/billings', [BillingController::class, 'index']); 
+        
+        // --- PERBAIKAN: Rute untuk Fitur Baru (Download & RajaOngkir) ---
+        Route::post('/products/{id}/download', [OrderController::class, 'downloadDigital']);
+        Route::get('/rajaongkir/provinces', [OrderController::class, 'getProvinces']);
+        Route::get('/rajaongkir/cities/{provinceId}', [OrderController::class, 'getCities']);
+        Route::post('/rajaongkir/cost', [OrderController::class, 'checkOngkir']);
     });
 
     // ------------------------------------------
@@ -59,7 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 
         // Manajemen Tier (Master Setup)
-        Route::get('/tiers', [TierController::class, 'index']); // Gunakan jika admin butuh query khusus ke depannya
+        Route::get('/tiers', [TierController::class, 'index']); 
         Route::post('/tiers', [TierController::class, 'store']);
         Route::put('/tiers/{id}', [TierController::class, 'update']);
         Route::delete('/tiers/{id}', [TierController::class, 'destroy']);

@@ -20,7 +20,8 @@ class Product extends Model
         'access_tier', // Tambahkan ini
         'quantity',    // Tambahkan ini
         'is_active',
-        'image'
+        'image',
+        'file_path'
     ];
 
     protected $casts = [

@@ -27,6 +27,7 @@ onMounted(async () => {
 
 const menuItems = [
   { name: 'Overview', icon: '📊', route: '/dashboard/customer' },
+  { name: 'Info Member', icon: '👑', route: '/dashboard/customer/member' },
   { name: 'Product Portal', icon: '🛍️', route: '/dashboard/customer/products' },
   { name: 'Pesanan Saya', icon: '📦', route: '/dashboard/customer/orders' },
   { name: 'Tagihan & Billing', icon: '💳', route: '/dashboard/customer/billing' },

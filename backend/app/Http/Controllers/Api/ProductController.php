@@ -80,6 +80,12 @@ class ProductController extends Controller
             $product->image = $path;
         }
 
+        // Menyimpan file master digital (RAB, template, dll)
+        if ($request->hasFile('digital_file')) {
+            if (isset($product->file_path)) Storage::disk('public')->delete($product->file_path);
+            $product->file_path = $request->file('digital_file')->store('products/files', 'public');
+        }
+
         $product->save();
 
         if (!empty($request->features)) $product->features()->createMany($request->features);
@@ -124,6 +130,12 @@ class ProductController extends Controller
             if ($product->image) Storage::disk('public')->delete($product->image);
             $path = $request->file('image')->store('products/images', 'public');
             $product->image = $path;
+        }
+
+        // Menyimpan file master digital (RAB, template, dll)
+        if ($request->hasFile('digital_file')) {
+            if (isset($product->file_path)) Storage::disk('public')->delete($product->file_path);
+            $product->file_path = $request->file('digital_file')->store('products/files', 'public');
         }
 
         $product->save();

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue'; // Hapus onMounted
 import { useRouter } from 'vue-router';
 import api from '../../api/axios';
 
 const router = useRouter();
 
-// State form bawaan kamu
+// State form bawaan
 const name = ref('');
 const phoneCode = ref('+62');
 const phoneNumber = ref('');
@@ -13,29 +13,12 @@ const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 
-// --- TAMBAHAN STATE TIER ---
-const tierId = ref(''); 
-const masterTiers = ref<{ id: number; name: string; slug: string }[]>([]);
+// State tier (tierId & masterTiers) dan onMounted() SUDAH DIHAPUS
 
 const errorMessage = ref('');
 const successMessage = ref('');
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
-
-// --- TAMBAHAN: Fetch data master tier saat halaman dimuat ---
-onMounted(async () => {
-  try {
-    const response = await api.get('/tiers');
-    masterTiers.value = response.data;
-    if (masterTiers.value.length > 0) {
-      // Set default dropdown ke 'free'
-      const defaultTier = masterTiers.value.find(t => t.slug === 'free');
-      tierId.value = defaultTier ? String(defaultTier.id) : String(masterTiers.value[0].id);
-    }
-  } catch (error) {
-    console.error('Gagal mengambil data tier', error);
-  }
-});
 
 const handleRegister = async () => {
   if (password.value !== confirmPassword.value) {
@@ -50,8 +33,7 @@ const handleRegister = async () => {
       email: email.value,
       password: password.value,
       password_confirmation: confirmPassword.value,
-      // --- TAMBAHAN: Kirim ID tier ke backend ---
-      tier_id: parseInt(tierId.value) 
+      // tier_id tidak perlu lagi dikirim ke backend
     });
     
     successMessage.value = 'Registrasi berhasil! Mengarahkan ke halaman login...';
@@ -118,15 +100,6 @@ const loginWithGoogle = () => {
           <div>
             <label class="block text-xs font-bold text-gray-700 mb-1">Email*</label>
             <input v-model="email" type="email" placeholder="Enter your email" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1DA1F2] transition" required />
-          </div>
-
-          <div class="mb-4">
-              <label class="block text-xs font-bold text-gray-700 mb-1">Pilih Tipe Member</label>
-              <select v-model="tierId" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1DA1F2] transition">
-                  <option v-for="t in masterTiers" :key="t.id" :value="t.id">
-                      {{ t.name }}
-                  </option>
-              </select>
           </div>
 
           <div>
