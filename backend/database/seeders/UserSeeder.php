@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Tier; // <-- Tambahkan import model Tier
+use App\Models\Tier; 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -14,20 +14,20 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Tarik data master tier dari database agar ID-nya akurat
-        $freeTier = Tier::where('slug', 'free')->first();
-        $silverTier = Tier::where('slug', 'silver')->first();
-        $goldTier = Tier::where('slug', 'gold')->first();
+        // Tarik data master tier dari database (Mendukung format 'gold' maupun 'gold-member')
+        $freeTier = Tier::where('slug', 'free-member')->orWhere('slug', 'free')->first();
+        $silverTier = Tier::where('slug', 'silver-member')->orWhere('slug', 'silver')->first();
+        $goldTier = Tier::where('slug', 'gold-member')->orWhere('slug', 'gold')->first();
 
         // 1. Akun Administrator
         User::updateOrCreate(
-            ['email' => 'adminkerjapro@gmail.com'], // Cek agar tidak duplikat
+            ['email' => 'adminkerjapro@gmail.com'], 
             [
                 'name' => 'Admin Kerjapro',
-                'password' => Hash::make('password123'), // Default password
+                'password' => Hash::make('password123'), 
                 'role' => 'admin',
                 'phone' => '+6285117001162',
-                'tier_id' => null, // Admin tidak terikat tier limitasi
+                'tier_id' => null, 
             ]
         );
 
@@ -39,7 +39,7 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('password123'),
                 'role' => 'customer',
                 'phone' => '+6281234567890',
-                'tier_id' => $goldTier ? $goldTier->id : null, // Memasukkan relasi Gold
+                'tier_id' => $goldTier ? $goldTier->id : null, 
             ]
         );
 
@@ -51,7 +51,19 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('password123'),
                 'role' => 'customer',
                 'phone' => '+6289876543210',
-                'tier_id' => $freeTier ? $freeTier->id : null, // Memasukkan relasi Free
+                'tier_id' => $freeTier ? $freeTier->id : null, 
+            ]
+        );
+
+        // 4. Akun Customer 3 (Diberikan Tier: Silver Member)
+        User::updateOrCreate(
+            ['email' => 'silvercustomer@gmail.com'],
+            [
+                'name' => 'Pelanggan Silver',
+                'password' => Hash::make('password123'),
+                'role' => 'customer',
+                'phone' => '+6287777777777',
+                'tier_id' => $silverTier ? $silverTier->id : null, 
             ]
         );
     }

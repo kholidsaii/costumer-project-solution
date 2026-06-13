@@ -33,7 +33,7 @@ const isAuthPage = computed(() => {
 
         <nav class="absolute left-[110px] md:left-[180px] bottom-0 h-[55px] md:h-[65px] flex items-center gap-3 lg:gap-6 z-10">
           <template v-if="!isAuthPage">
-            <router-link to="/customer" class="text-[13px] md:text-[15px] font-black text-[#1E3A8A] hover:text-blue-800 transition">Home</router-link>
+            <router-link to="/customer" class="text-[13px] md:text-[15px] font-black text-[#60A5FA] hover:text-blue-800 transition">Home</router-link>
             <span class="text-slate-300 font-light hidden md:inline">|</span>
             <router-link to="/customer/products" class="text-[13px] md:text-[15px] font-bold text-[#60A5FA] hover:text-blue-600 transition">Products</router-link>
             <span class="text-slate-300 font-light hidden md:inline">|</span>

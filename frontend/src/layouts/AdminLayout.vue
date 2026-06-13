@@ -11,7 +11,7 @@ const menuGroups = [
   {
     name: 'Utama',
     items: [
-      { name: 'Dashboard', icon: '📊', route: '/admin/dashboard' }
+      { name: 'Home', icon: '🏠', route: '/admin/dashboard' }
     ]
   },
   {
@@ -25,13 +25,16 @@ const menuGroups = [
   {
     name: 'Manajemen Product',
     items: [
-      { name: 'Kelola Products', icon: '🛍️', route: '/admin/products' },
+      { name: 'Software / Layanan', icon: '💻', route: '/admin/products/software' },
+      { name: 'Produk Digital', icon: '📄', route: '/admin/products/digital' },
+      { name: 'Fisik / Retail', icon: '📦', route: '/admin/products/physical' },
     ]
   },
   {
-    name: 'Setup Kontrol',
+    name: 'Member Kontrol',
     items: [
-      { name: 'Member Tier', icon: '⚙️', route: '/admin/tiers' },
+      { name: 'Data & Transaksi', icon: '👥', route: '/admin/members' },
+      { name: 'Paket Member', icon: '⚙️', route: '/admin/tiers' },      
     ]
   }
 ];

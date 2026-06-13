@@ -27,8 +27,9 @@ import AdminOrders from '../components/admin/business/AdminOrders.vue';
 import AdminBillings from '../components/admin/business/AdminBillings.vue';
 import AdminCustomers from '../components/admin/business/AdminCustomers.vue';
 
-// Setup Tiers
-import AdminTiers from '../components/admin/setup/AdminTiers.vue'; 
+// Member Tiers
+import AdminTiers from '../components/admin/member/AdminTiers.vue'; 
+import AdminMembers from '../components/admin/member/AdminMembers.vue';
 
 // Auth
 import Login from '../components/auth/LoginAkses.vue';
@@ -72,12 +73,18 @@ const routes = [
     meta: { requiresAuth: true, role: 'admin' },
     children: [
       { path: 'dashboard', component: AdminDashboard },
-      { path: 'products', component: AdminProducts },
+      
+      // --- PERUBAHAN: Pecah rute produk menjadi 3 menu ---
+      { path: 'products/software', component: AdminProducts, meta: { productType: 'software', formType: 'Software' } },
+      { path: 'products/digital', component: AdminProducts, meta: { productType: 'digital', formType: 'Digital' } },
+      { path: 'products/physical', component: AdminProducts, meta: { productType: 'physical', formType: 'Fisik' } },
+      // --------------------------------------------------
+      
       { path: 'orders', component: AdminOrders },
       { path: 'billings', component: AdminBillings },
       { path: 'customers', component: AdminCustomers },
       { path: 'tiers', component: AdminTiers },
-      // Menambahkan fallback untuk route yang sering salah ketik
+      { path: 'members', component: AdminMembers },
       { path: 'sales', redirect: '/admin/orders' },
     ]
   },

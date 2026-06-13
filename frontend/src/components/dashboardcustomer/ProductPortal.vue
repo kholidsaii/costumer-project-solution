@@ -12,6 +12,27 @@ const loading = ref(true);
 const currentUserName = ref(localStorage.getItem('user_name') || '');
 const userTierSlug = ref(localStorage.getItem('user_tier_slug') || 'free');
 
+// --- FITUR BARU: MENGAMBIL DATA LIMIT DOWNLOAD DARI BACKEND ---
+const currentUserData = ref<any>(null);
+
+const fetchUserData = async () => {
+  try {
+    const token = localStorage.getItem('access_token');
+    const res = await axios.get(`${BASE_URL}/api/customer/me`, { headers: { Authorization: `Bearer ${token}` }});
+    currentUserData.value = res.data;
+  } catch (error) {
+    console.error('Gagal mengambil data profil pelanggan', error);
+  }
+};
+
+// Fungsi Cerdas Pengecek Limit Download
+const isDownloadLimitReached = () => {
+  if (!currentUserData.value) return false; // Abaikan saat masih loading
+  const limit = currentUserData.value.tier?.digital_limit || 0;
+  const count = currentUserData.value.digital_downloads_count || 0;
+  return count >= limit && limit < 999999; // 999999 adalah kode untuk Unlimited
+};
+
 // --- STATE MODAL REVIEW ---
 const isReviewModalOpen = ref(false);
 const activeProductId = ref<number | null>(null);
@@ -42,7 +63,7 @@ const physicalForm = ref({
   city_id: '', 
   detail_address: '', 
   courier: '', 
-  service: '', // cth: OKE, REG, YES
+  service: '', 
   cost: 0 
 });
 
@@ -58,7 +79,11 @@ const fetchProducts = async () => {
   }
 };
 
-onMounted(fetchProducts);
+// Panggil 2 fungsi sekaligus saat halaman dimuat
+onMounted(() => {
+  fetchProducts();
+  fetchUserData();
+});
 
 const getUserReview = (product: any) => {
   if (!product || !product.reviews) return null;
@@ -70,7 +95,6 @@ const fetchProvinces = async () => {
   try {
     const token = localStorage.getItem('access_token');
     const res = await axios.get(`${BASE_URL}/api/customer/rajaongkir/provinces`, { headers: { Authorization: `Bearer ${token}` }});
-    // Baca data (mendukung Komerce v2 maupun Starter)
     provinces.value = res.data.data || res.data.rajaongkir?.results || [];
   } catch (error: any) { 
     alert('GAGAL MEMUAT PROVINSI:\n' + (error.response?.data?.message || error.message));
@@ -90,8 +114,19 @@ const fetchCities = async () => {
   }
 };
 
+const handleCourierChange = () => {
+  if (physicalForm.value.courier === 'toko') {
+    physicalForm.value.service = 'Toko';
+    physicalForm.value.cost = 0;
+    ongkirOptions.value = [];
+    checkingOngkir.value = false;
+  } else {
+    checkOngkir();
+  }
+};
+
 const checkOngkir = async () => {
-  if (!physicalForm.value.city_id || !physicalForm.value.courier) return;
+  if (!physicalForm.value.city_id || !physicalForm.value.courier || physicalForm.value.courier === 'toko') return;
   
   checkingOngkir.value = true;
   ongkirOptions.value = [];
@@ -106,20 +141,46 @@ const checkOngkir = async () => {
       weight: 1000 
     }, { headers: { Authorization: `Bearer ${token}` }});
 
-    if (res.data.data && Array.isArray(res.data.data)) {
-        ongkirOptions.value = res.data.data;
-    } else if (res.data.rajaongkir?.results) {
-        ongkirOptions.value = res.data.rajaongkir.results[0].costs;
-    }
+    if (res.data.data && Array.isArray(res.data.data)) ongkirOptions.value = res.data.data;
+    else if (res.data.rajaongkir?.results) ongkirOptions.value = res.data.rajaongkir.results[0].costs;
   } catch (error: any) {
-    // Tangkap pesan ramah dari backend
-    if (error.response && error.response.status === 404) {
-        alert(error.response.data.message);
-    } else {
-        alert('GAGAL MENGHITUNG ONGKIR:\n' + (error.response?.data?.message || error.message));
-    }
-  } finally {
-    checkingOngkir.value = false;
+    if (error.response && error.response.status === 404) alert(error.response.data.message);
+    else alert('GAGAL MENGHITUNG ONGKIR:\n' + (error.response?.data?.message || error.message));
+  } finally { checkingOngkir.value = false; }
+};
+
+const submitPhysicalOrder = async () => {
+  if (physicalForm.value.courier !== 'toko' && physicalForm.value.cost === 0) {
+      return alert('Silakan pilih layanan ongkir terlebih dahulu!');
+  }
+  submittingOrder.value = true;
+  
+  const selectedProv = provinces.value.find(p => (p.id || p.province_id) == physicalForm.value.province_id);
+  const provName = selectedProv ? (selectedProv.name || selectedProv.province) : '';
+
+  const selectedCity = cities.value.find(c => (c.id || c.city_id) == physicalForm.value.city_id);
+  const cityName = selectedCity ? (selectedCity.name || selectedCity.city_name) : '';
+
+  const fullAddress = `${physicalForm.value.detail_address}, ${cityName}, ${provName}`;
+  const courierString = physicalForm.value.courier === 'toko' ? 'Pengiriman Toko' : `${physicalForm.value.courier.toUpperCase()} - ${physicalForm.value.service}`;
+
+  const token = localStorage.getItem('access_token');
+  try {
+    await axios.post(`${BASE_URL}/api/customer/orders`, {
+      product_id: activeProduct.value.id,
+      product_type: 'physical',
+      shipping_address: fullAddress,
+      courier: courierString,
+      shipping_cost: physicalForm.value.cost
+    }, { headers: { Authorization: `Bearer ${token}` } });
+    
+    alert(physicalForm.value.courier === 'toko' ? 'Berhasil! Pesanan dibuat. Silakan tunggu Admin memasukkan harga ongkir.' : 'Pesanan Fisik berhasil dibuat!');
+    isPhysicalModalOpen.value = false;
+    router.push('/dashboard/customer/orders');
+  } catch (error) { 
+    alert('Gagal memproses pesanan fisik.'); 
+  } finally { 
+    submittingOrder.value = false; 
   }
 };
 
@@ -134,25 +195,41 @@ const handleOrderClick = async (product: any) => {
       const res = await axios.post(`${BASE_URL}/api/customer/products/${product.id}/download`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert(res.data.message + '\nURL File: ' + res.data.download_url);
+      
+      // Update sisa limit di tampilan agar gembok bisa langsung terkunci jika limit habis
+      if (currentUserData.value && res.data.current_downloads !== undefined) {
+         currentUserData.value.digital_downloads_count = res.data.current_downloads;
+      }
+
+      const fileUrl = res.data.download_url;
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.setAttribute('target', '_blank'); 
+      link.setAttribute('download', ''); 
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      alert('Berhasil! File digital Anda sedang diunduh.');
+
     } catch (error: any) {
       alert(error.response?.data?.message || 'Gagal mengunduh produk digital. Pastikan limit Anda cukup.');
     }
   } 
   // 2. SOFTWARE
   else if (product.product_type === 'software') {
-    if (userTierSlug.value !== 'gold') {
+    if (!userTierSlug.value.includes('gold')) {
       alert('Maaf, produk Software eksklusif hanya untuk Gold Member. Silakan upgrade tier Anda terlebih dahulu.');
       return;
     }
     isDetailModalOpen.value = false; 
     isSoftwareModalOpen.value = true;
-  } 
+  }
   // 3. PHYSICAL
   else if (product.product_type === 'physical') {
     isDetailModalOpen.value = false; 
     isPhysicalModalOpen.value = true;
-    fetchProvinces(); // Otomatis ambil data provinsi
+    fetchProvinces(); 
   } 
 };
 
@@ -177,36 +254,6 @@ const submitSoftwareOrder = async () => {
     router.push('/dashboard/customer/orders');
   } catch (error) {
     alert('Gagal mengirim pesanan software.');
-  } finally {
-    submittingOrder.value = false;
-  }
-};
-
-// --- SUBMIT PHYSICAL ORDER ---
-const submitPhysicalOrder = async () => {
-  if (physicalForm.value.cost === 0) return alert('Silakan pilih layanan ongkir terlebih dahulu!');
-  submittingOrder.value = true;
-  
-  // Gabungkan alamat lengkap untuk disimpan ke database
-  const provName = provinces.value.find(p => p.province_id == physicalForm.value.province_id)?.province;
-  const cityName = cities.value.find(c => c.city_id == physicalForm.value.city_id)?.city_name;
-  const fullAddress = `${physicalForm.value.detail_address}, ${cityName}, ${provName}`;
-
-  const token = localStorage.getItem('access_token');
-  try {
-    await axios.post(`${BASE_URL}/api/customer/orders`, {
-      product_id: activeProduct.value.id,
-      product_type: 'physical',
-      shipping_address: fullAddress,
-      courier: `${physicalForm.value.courier.toUpperCase()} - ${physicalForm.value.service}`,
-      shipping_cost: physicalForm.value.cost
-    }, { headers: { Authorization: `Bearer ${token}` } });
-    
-    alert('Pesanan Fisik berhasil dibuat!');
-    isPhysicalModalOpen.value = false;
-    router.push('/dashboard/customer/orders');
-  } catch (error) {
-    alert('Gagal memproses pesanan fisik.');
   } finally {
     submittingOrder.value = false;
   }
@@ -290,7 +337,12 @@ const formatPrice = (price: any) => {
           <p class="font-black text-indigo-600 text-lg mb-4">{{ formatPrice(product.price) }}</p>
           
           <div class="grid grid-cols-2 gap-2">
-            <button @click="handleOrderClick(product)" class="bg-[#51C4ED] text-white py-2 rounded-lg text-xs font-black hover:bg-[#42B8E6] transition-colors shadow-sm">
+            
+            <button v-if="(product.product_type === 'software' && !userTierSlug.includes('gold')) || (product.product_type === 'digital' && isDownloadLimitReached())" disabled class="bg-slate-100 text-slate-400 border border-slate-200 py-2 rounded-lg text-xs font-black cursor-not-allowed shadow-sm flex items-center justify-center gap-1.5 transition-colors">
+              🔒 {{ product.product_type === 'digital' ? 'Limit Habis' : 'Terkunci' }}
+            </button>
+            
+            <button v-else @click="handleOrderClick(product)" class="bg-[#51C4ED] text-white py-2 rounded-lg text-xs font-black hover:bg-[#42B8E6] transition-colors shadow-sm">
               {{ product.product_type === 'digital' ? 'Download Digital' : 'Pesan Sekarang' }}
             </button>
             
@@ -358,13 +410,19 @@ const formatPrice = (price: any) => {
               <h3 class="text-3xl font-black text-indigo-600 mb-6">{{ formatPrice(activeProduct.price) }}</h3>
               
               <div class="flex gap-3">
-                <button @click="handleOrderClick(activeProduct)" class="flex-1 bg-[#51C4ED] text-white py-3.5 rounded-xl text-sm font-black hover:bg-[#42B8E6] transition-colors shadow-sm">
+                
+                <button v-if="(activeProduct.product_type === 'software' && !userTierSlug.includes('gold')) || (activeProduct.product_type === 'digital' && isDownloadLimitReached())" disabled class="flex-1 bg-slate-100 text-slate-400 border border-slate-200 py-3.5 rounded-xl text-sm font-black cursor-not-allowed shadow-sm flex items-center justify-center gap-2">
+                  🔒 {{ activeProduct.product_type === 'digital' ? 'Limit Download Habis' : 'Eksklusif Gold Member' }}
+                </button>
+
+                <button v-else @click="handleOrderClick(activeProduct)" class="flex-1 bg-[#51C4ED] text-white py-3.5 rounded-xl text-sm font-black hover:bg-[#42B8E6] transition-colors shadow-sm">
                   {{ activeProduct.product_type === 'digital' ? 'Download Sistem Ini' : 'Pesan Sistem Ini' }}
                 </button>
+                
                 <button @click="openReviewModal(activeProduct)" class="flex-none px-5 bg-white border border-slate-200 text-slate-700 py-3.5 rounded-xl text-sm font-black hover:bg-slate-50 transition-colors shadow-sm">
                   ⭐
                 </button>
-              </div>
+              </div>  
             </div>
           </div>
 
@@ -473,12 +531,16 @@ const formatPrice = (price: any) => {
 
           <div>
             <label class="text-xs font-bold block mb-1 text-slate-700">Pilih Kurir Ekspedisi</label>
-            <select v-model="physicalForm.courier" @change="checkOngkir" required class="w-full border border-slate-200 bg-slate-50 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500">
+            <select v-model="physicalForm.courier" @change="handleCourierChange" required class="w-full border border-slate-200 bg-slate-50 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500">
               <option value="" disabled>Pilih Kurir...</option>
+              <option value="toko">🏪 Pengiriman Toko (Harga ditentukan Admin)</option>
               <option value="jne">JNE (Jalur Nugraha Ekakurir)</option>
               <option value="tiki">TIKI (Titipan Kilat)</option>
               <option value="pos">POS Indonesia</option>
             </select>
+            <p v-if="physicalForm.courier === 'toko'" class="text-[10px] text-amber-600 bg-amber-50 p-2 mt-2 rounded border border-amber-100">
+              Biaya pengiriman akan dicek secara manual oleh Admin. Anda akan diminta mentransfer setelah total harga muncul di menu Pesanan.
+            </p>
           </div>
 
           <div v-if="checkingOngkir" class="text-center p-4 text-xs font-bold text-blue-500">Menghitung tarif ongkos kirim...</div>
@@ -498,11 +560,11 @@ const formatPrice = (price: any) => {
             </div>
           </div>
           
-          <div v-else-if="physicalForm.city_id && physicalForm.courier && !checkingOngkir" class="text-center p-4 text-xs font-bold text-red-500">Layanan kurir ini tidak tersedia untuk kota tujuan Anda.</div>
+          <div v-else-if="physicalForm.city_id && physicalForm.courier !== 'toko' &&!checkingOngkir" class="text-center p-4 text-xs font-bold text-red-500">Layanan kurir ini tidak tersedia untuk kota tujuan Anda.</div>
 
           <div class="flex gap-2 pt-4 border-t border-slate-100">
             <button type="button" @click="isPhysicalModalOpen = false" class="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-200 transition">Batal</button>
-            <button type="submit" :disabled="submittingOrder || physicalForm.cost === 0" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm flex-1 hover:bg-blue-700 transition disabled:opacity-50">
+            <button type="submit" :disabled="submittingOrder || (physicalForm.courier !== 'toko' && physicalForm.cost === 0)" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm flex-1 hover:bg-blue-700 transition disabled:opacity-50">
               {{ submittingOrder ? 'Memproses...' : 'Lanjutkan Pesanan' }}
             </button>
           </div>

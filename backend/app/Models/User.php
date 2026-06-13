@@ -20,7 +20,8 @@ class User extends Authenticatable
         'phone',
         'google_id',
         'tier_id',
-        'digital_downloads_count' 
+        'digital_downloads_count',
+        'tier_expires_at' 
     ];
 
     public function orders() {

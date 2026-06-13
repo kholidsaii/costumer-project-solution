@@ -59,7 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/orders', [OrderController::class, 'store']);
         Route::get('/orders', [OrderController::class, 'index']);
         Route::post('/orders/{id}/pay', [OrderController::class, 'pay']);
+        Route::post('/orders/{id}/upload-proof', [OrderController::class, 'uploadProof']);
         Route::get('/billings', [BillingController::class, 'index']); 
+        Route::post('/member/upgrade', [\App\Http\Controllers\Api\TierTransactionController::class, 'store']);
         
         // --- PERBAIKAN: Rute untuk Fitur Baru (Download & RajaOngkir) ---
         Route::post('/products/{id}/download', [OrderController::class, 'downloadDigital']);
@@ -77,6 +79,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [OrderController::class, 'adminIndex']);
         Route::post('/orders/{id}/approve', [OrderController::class, 'approve']);
         Route::post('/orders/{id}/reject', [OrderController::class, 'reject']);
+        Route::post('/orders/{id}/input-ongkir', [OrderController::class, 'inputOngkir']);
+        Route::post('/orders/{id}/setup-software', [OrderController::class, 'setupSoftware']);
+        Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
         Route::get('/billings', [BillingController::class, 'adminIndex']);
 
         // Manajemen Produk
@@ -90,5 +95,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/tiers', [TierController::class, 'store']);
         Route::put('/tiers/{id}', [TierController::class, 'update']);
         Route::delete('/tiers/{id}', [TierController::class, 'destroy']);
+        Route::get('/member/active', [\App\Http\Controllers\Api\TierTransactionController::class, 'activeMembers']);
+        Route::get('/member/transactions', [\App\Http\Controllers\Api\TierTransactionController::class, 'index']);
+        Route::post('/member/transactions/{id}/approve', [\App\Http\Controllers\Api\TierTransactionController::class, 'approve']);
+        Route::post('/member/transactions/{id}/reject', [\App\Http\Controllers\Api\TierTransactionController::class, 'reject']);
     });
 });

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import api from '../api/axios';
 
 const router = useRouter();
+const route = useRoute();
 const userName = ref(localStorage.getItem('user_name') || 'Pelanggan');
 const userTierSlug = ref(localStorage.getItem('user_tier_slug') || 'free');
 const userTierName = ref(localStorage.getItem('user_tier_name') || 'Free Member');
@@ -13,7 +14,6 @@ onMounted(async () => {
     const response = await api.get('/user');
     userName.value = response.data.name;
     
-    // API /user sekarang sudah membawa data tier karena kita load('tier') di routes api.php
     userTierSlug.value = response.data.tier?.slug || 'free';
     userTierName.value = response.data.tier?.name || 'Free Member';
     
@@ -27,7 +27,7 @@ onMounted(async () => {
 
 const menuItems = [
   { name: 'Overview', icon: '📊', route: '/dashboard/customer' },
-  { name: 'Info Member', icon: '👑', route: '/dashboard/customer/member' },
+  { name: 'Info Member', icon: '🧷', route: '/dashboard/customer/member' },
   { name: 'Product Portal', icon: '🛍️', route: '/dashboard/customer/products' },
   { name: 'Pesanan Saya', icon: '📦', route: '/dashboard/customer/orders' },
   { name: 'Tagihan & Billing', icon: '💳', route: '/dashboard/customer/billing' },
@@ -41,12 +41,41 @@ const handleLogout = async () => {
     router.push('/customer');
   }
 };
+
+// --- LOGIKA TEMA WARNA DINAMIS BERDASARKAN TIER ---
+const theme = computed(() => {
+  const slug = userTierSlug.value.toLowerCase();
+  
+  if (slug.includes('gold')) {
+    return {
+      header: 'bg-gradient-to-r from-amber-50 to-white border-amber-200',
+      badge: 'bg-gradient-to-r from-amber-200 to-yellow-400 text-amber-900 border-amber-400 shadow-amber-400/50 animate-pulse',
+      avatar: 'bg-gradient-to-tr from-amber-400 to-yellow-600 shadow-amber-500/50',
+      activeMenu: 'bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-amber-900/30'
+    };
+  } else if (slug.includes('silver')) {
+    return {
+      header: 'bg-gradient-to-r from-slate-100 to-white border-slate-300',
+      badge: 'bg-gradient-to-r from-slate-200 to-slate-300 text-slate-800 border-slate-400 shadow-slate-400/50',
+      avatar: 'bg-gradient-to-tr from-slate-400 to-slate-600 shadow-slate-500/50',
+      activeMenu: 'bg-gradient-to-r from-slate-500 to-slate-700 text-white shadow-slate-900/30'
+    };
+  } else {
+    // Default Free Member
+    return {
+      header: 'bg-white border-slate-200',
+      badge: 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm',
+      avatar: 'bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-blue-500/50',
+      activeMenu: 'bg-blue-600 text-white shadow-blue-900/30'
+    };
+  }
+});
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-100 font-sans flex flex-col md:flex-row">
     
-    <aside class="w-full md:w-64 bg-slate-900 text-slate-200 flex flex-col flex-none shadow-xl">
+    <aside class="w-full md:w-64 bg-slate-900 text-slate-200 flex flex-col flex-none shadow-xl transition-all duration-300">
       <div class="p-6 border-b border-slate-800 flex items-center justify-between">
         <h1 class="text-base font-black tracking-wider text-white uppercase">Kerjapro Customer</h1>
       </div>
@@ -56,8 +85,7 @@ const handleLogout = async () => {
           :key="item.name" 
           :to="item.route" 
           class="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition group"
-          active-class="bg-blue-600 text-white shadow-md shadow-blue-900/30"
-          :class="[$route.path === item.route ? '' : 'hover:bg-slate-800/50 text-slate-400 hover:text-slate-200']"
+          :class="[route.path === item.route ? theme.activeMenu : 'hover:bg-slate-800/50 text-slate-400 hover:text-slate-200']"
         >
           <span class="text-lg opacity-70 group-hover:opacity-100">{{ item.icon }}</span>
           {{ item.name }}
@@ -71,7 +99,7 @@ const handleLogout = async () => {
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-sm">
+      <header :class="['h-16 border-b px-6 flex items-center justify-between shadow-sm transition-colors duration-500', theme.header]">
         <div class="flex items-center gap-3">
           <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider hidden md:block">Customer Area</h2>
         </div>
@@ -80,18 +108,12 @@ const handleLogout = async () => {
           <div class="text-right flex flex-col items-end justify-center">
             <p class="text-sm font-black text-slate-800 leading-tight">{{ userName }}</p>
             
-            <span v-if="userTierSlug === 'gold'" class="mt-0.5 inline-flex items-center bg-amber-100 text-amber-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border border-amber-300 shadow-sm animate-pulse">
-              👑 {{ userTierName }}
-            </span>
-            <span v-else-if="userTierSlug === 'silver'" class="mt-0.5 inline-flex items-center bg-slate-100 text-slate-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border border-slate-300 shadow-sm">
-              ✨ {{ userTierName }}
-            </span>
-            <span v-else class="mt-0.5 inline-flex items-center bg-blue-50 text-blue-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border border-blue-200 shadow-sm">
-              {{ userTierName }}
+            <span :class="['mt-0.5 inline-flex items-center text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all duration-500', theme.badge]">
+              {{ userTierSlug.includes('gold') ? '👑' : (userTierSlug.includes('silver') ? '✨' : '') }} {{ userTierName }}
             </span>
           </div>
           
-          <div class="w-9 h-9 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md">
+          <div :class="['w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm transition-all duration-500', theme.avatar]">
             {{ userName.charAt(0).toUpperCase() }}
           </div>
         </div>

@@ -8,7 +8,9 @@ class Order extends Model
 {
     protected $fillable = [
     'user_id', 'product_id', 'order_number', 'total_amount', 'status',
-    'payment_method', 'payment_proof', 'shipping_address', 'shipping_cost', 'courier', 'software_link'];
+    'payment_method', 'payment_proof', 'shipping_address', 'shipping_cost', 'courier', 
+    'software_link', 'software_username', 'software_password', 'reject_reason'
+    ];
 
     public function product()
     {

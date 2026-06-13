@@ -22,7 +22,8 @@ class TierController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'digital_limit' => 'required|integer|min:0',
-            'software_access' => 'required|boolean'
+            'software_access' => 'required|boolean',
+            'duration_in_months' => 'required|integer|min:0'
         ]);
 
         $tier = Tier::create([
@@ -31,7 +32,8 @@ class TierController extends Controller
             'description' => $request->description,
             'price' => $request->price,
             'digital_limit' => $request->digital_limit,
-            'software_access' => $request->software_access
+            'software_access' => $request->software_access,
+            'duration_in_months' => $request->duration_in_months
         ]);
 
         return response()->json(['message' => 'Tier berhasil ditambahkan', 'data' => $tier], 201);
@@ -46,7 +48,8 @@ class TierController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'digital_limit' => 'required|integer|min:0',
-            'software_access' => 'required|boolean'
+            'software_access' => 'required|boolean',
+            'duration_in_months' => 'required|integer|min:0'
         ]);
 
         $tier->update([
@@ -55,7 +58,8 @@ class TierController extends Controller
             'description' => $request->description,
             'price' => $request->price,
             'digital_limit' => $request->digital_limit,
-            'software_access' => $request->software_access
+            'software_access' => $request->software_access,
+            'duration_in_months' => $request->duration_in_months
         ]);
 
         return response()->json(['message' => 'Tier berhasil diperbarui', 'data' => $tier], 200);
